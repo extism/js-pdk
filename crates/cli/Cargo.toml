@@ -1,0 +1,22 @@
+[package]
+name = "js-pdk-cli"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "extism-js"
+path = "src/main.rs"
+
+[dependencies]
+quickjs-wasm-rs = { git = "https://github.com/Shopify/javy" }
+anyhow = { workspace = true }
+wasm-encoder = "0.20.0"
+wasmparser = "0.96.0"
+parity-wasm = { version = "0.45.0", features = ["bulk"] }
+brotli = "3.3.4"
+wizer = "1.6.0"
+structopt = "0.3"
+binaryen = "0.12.0"
