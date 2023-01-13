@@ -12,7 +12,25 @@ This is essentially a fork of [javy](https://github.com/Shopify/javy) by Shopify
 
 Javy, and many other high level language Wasm tools, assume use of the *command pattern*. This is when the Wasm module only exports a main function and communicates with the host through stdin and stdout. With Extism, we have more of a library approach. The module exposes multiple entry points through exported functions. Furthermore, Javy has many Javy and Shopify specific things it's doing that we will not need. However the core idea is the same and we can possibly contribute by adding support to Javy for non-command-pattern modules. Then separating the Extism PDK specific stuff into another repo.
 
+## Exports in JS
+
+For the most part, you can write your JS how you want. In order to export a function to Extism you must use this `module.exports = {f1, f2, ..}` syntax:
+
+```js
+
+func myFunc() {
+    //...
+}
+
+module.exports = { myFunc }
+```
+
+We will better support module systems in the future but for now we are hard coding the compiler to this one export syntax.
+
+
 ## How to use
+
+You need to compile from source at the moment. Here are the instructions:
 
 You need the WASI SDK and the latest rust to compile. See Javy repo on how to get WASI SDK. Set this env variable to the directory
 

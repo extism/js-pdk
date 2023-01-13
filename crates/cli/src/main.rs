@@ -3,9 +3,6 @@ mod options;
 
 use crate::options::Options;
 use anyhow::{bail, Result};
-use parity_wasm::elements::Instruction;
-use quickjs_wasm_rs::Context;
-use rslint_parser::syntax::expr;
 use rslint_parser::SyntaxKind;
 use std::env;
 use std::io::{Read, Write};
@@ -13,7 +10,6 @@ use std::path::Path;
 use std::process::Stdio;
 use std::{fs, process::Command};
 use structopt::StructOpt;
-use wasm_encoder::ValType;
 
 fn main() -> Result<()> {
     let opts = Options::from_args();
@@ -57,17 +53,13 @@ fn main() -> Result<()> {
         }
     }
 
-    add_custom_section(&opts.output, "extism_source".to_string(), contents)?;
+    add_extism_shim_exports(&opts.output, contents)?;
 
     Ok(())
 }
 
-fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8>) -> Result<()> {
+fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result<()> {
     use parity_wasm::elements::*;
-
-    // module
-    //     .sections_mut()
-    //     .push(Section::Custom(CustomSection::new(section, compressed)));
 
     let code = String::from_utf8(contents)?;
     let parsed = rslint_parser::parse_text(&code, 0);
@@ -186,19 +178,4 @@ fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8
     parity_wasm::serialize_to_file(&file, module)?;
 
     Ok(())
-}
-
-fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
-    let global = context.global_object().unwrap();
-    let module = global.get_property("module")?;
-    let exports = module.get_property("exports")?;
-    let mut properties = exports.properties()?;
-    let mut key = properties.next_key()?;
-    let mut keys: Vec<String> = vec![];
-    while key.is_some() {
-        keys.push(key.unwrap().as_str()?.to_string());
-        key = properties.next_key()?;
-    }
-    keys.sort();
-    Ok(keys)
 }

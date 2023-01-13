@@ -1,5 +1,3 @@
-use extism_pdk::bindings::extism_output_set;
-use extism_pdk::*;
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::Context;
 use std::io;
@@ -27,11 +25,6 @@ pub extern "C" fn init() {
     }
 }
 
-// #[plugin_fn]
-// pub fn __invoke(func_name: String) -> FnResult<String> {
-//     Ok(invoke(func_name)?)
-// }
-
 #[no_mangle]
 pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let code = unsafe { CODE.take().unwrap() };
@@ -42,22 +35,19 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     globals::inject_globals(&context, log_stream, error_stream)
         .expect("Failed to initialize globals");
 
-    let _ = context.eval_global("script.js", &code).unwrap();
+    let _ = context
+        .eval_global("script.js", &code)
+        .expect("Could not eval main script");
 
     let export_funcs = export_names(&context).expect("Could not parse exports");
-    let func_name = export_funcs.get(func_idx as usize).unwrap();
+    let func_name = export_funcs
+        .get(func_idx as usize)
+        .expect(format!("Could not find export func at index {func_idx}").as_str());
     let result = context
         .eval_global("script.js", format!("{}();", func_name).as_str())
         .expect("Could not invoke");
     result.as_i32_unchecked()
-    // extism_pdk::output(result.as_str().expect("Could not convert result to str")).expect("Could not set the output");
-    // 0
 }
-
-// #[plugin_fn]
-// pub fn count_vowels(_: ()) -> FnResult<String> {
-//     Ok(invoke("count_vowels".into())?)
-// }
 
 fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
     let global = context.global_object().unwrap();
