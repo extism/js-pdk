@@ -46,20 +46,10 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let export_funcs = export_names(&context).expect("Could not parse exports");
     let func_name = export_funcs.get(func_idx as usize).unwrap();
     let result = context.eval_global("script.js", format!("{}();", func_name).as_str()).expect("Could not invoke");
-    extism_pdk::output(result.as_str().expect("Could not convert result to str")).expect("Could not set the output");
-    0
+    result.as_i32_unchecked()
+    // extism_pdk::output(result.as_str().expect("Could not convert result to str")).expect("Could not set the output");
+    // 0
 }
-
-
-// #[no_mangle]
-// pub fn greet() -> i32 {
-//     unsafe {__invoke(1)}
-// }
-
-// #[plugin_fn]
-// pub fn exports(_: ()) -> FnResult<String> {
-//     Ok(export_names()?)
-// }
 
 // #[plugin_fn]
 // pub fn count_vowels(_: ()) -> FnResult<String> {

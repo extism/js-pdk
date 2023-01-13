@@ -10,15 +10,18 @@ function count_vowels() {
             count += 1
         }
     }
-    return JSON.stringify({count})
+    Host.outputString(JSON.stringify({count}))
+    return 0
 }
 
 function greet() {
-    return "Hello World from greet! " + Host.inputString()
+    Host.outputString("Hello World from greet! " + Host.inputString())
+    return 0
 }
 
 function greet2() {
-    return "Hello World from greet2! " + Host.inputString()
+    Host.outputString("Hello World from greet2! " + Host.inputString())
+    return 0
 }
 
 module.exports = { greet, count_vowels, greet2 }
