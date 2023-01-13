@@ -44,7 +44,6 @@ extism call out.wasm count_vowels --wasi --input="Hello World Test!"
 
 ## What needs to be done?
 
-The exports are vaporware. It's hard coded in rust. In the wizen step, we need to parse the exported functions in the js, then generate a small wrapper export function for each one and put it in the already compiled wasm. I think I can do this my creating a separate wasm file with just the wrappers and using `wasm-ld`, but no luck so far.
-
+I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon and maybe it can be replaced with something simpler.
 
 We need to finish the binding of the Extism PDK functions to the JS world. This is not too hard with quickjs-wasm-rs. We should mostly use all the code already written in rust and just map to JS types. 
