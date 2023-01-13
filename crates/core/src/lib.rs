@@ -1,3 +1,4 @@
+use extism_pdk::bindings::extism_output_set;
 use quickjs_wasm_rs::Context;
 use extism_pdk::*;
 use std::io::{Read};
@@ -26,55 +27,56 @@ pub extern "C" fn init() {
     }
 }
 
+// #[plugin_fn]
+// pub fn __invoke(func_name: String) -> FnResult<String> {
+//     Ok(invoke(func_name)?)
+// }
 
-#[plugin_fn]
-pub fn run_js_code(_: ()) -> FnResult<String> {
-    Ok(exports("function add() { return 'Hello' }; exports = {add};")?)
-}
-
-#[plugin_fn]
-pub fn __invoke(func_name: String) -> FnResult<String> {
-    Ok(invoke(func_name)?)
-}
-
-fn invoke(func_name: String) -> anyhow::Result<String> {
+#[no_mangle]
+pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let code = unsafe { CODE.take().unwrap() };
     let context = unsafe { CONTEXT.take().unwrap() };
 
-    let _ = context.eval_global("script.js", &code).unwrap();
-    //let global = context.global_object().unwrap();
-    let result = context.eval_global("script.js", format!("{}();", func_name).as_str())?;
-    Ok(format!("{:#?}", result.as_str()?))
-}
-
-#[plugin_fn]
-pub fn greet(_: ()) -> FnResult<String> {
-    Ok(invoke("greet".into())?)
-}
-
-#[plugin_fn]
-pub fn count_vowels(_: ()) -> FnResult<String> {
-    Ok(invoke("count_vowels".into())?)
-}
-
-pub fn exports(contents: &str) -> anyhow::Result<String> {
-    let context = Context::default();
     let log_stream =  io::stderr();
     let error_stream = io::stderr();
+    globals::inject_globals(&context, log_stream, error_stream).expect("Failed to initialize globals");
 
-    globals::inject_globals(&context, log_stream, error_stream)?;
+    let _ = context.eval_global("script.js", &code).unwrap();
 
-    //let contents = "function add(a, b) { return 'Hello From Javascript' }; exports = { add } ";
-    let _ = context.eval_global("script.js", &contents).unwrap();
+    let export_funcs = export_names(&context).expect("Could not parse exports");
+    let func_name = export_funcs.get(func_idx as usize).unwrap();
+    let result = context.eval_global("script.js", format!("{}();", func_name).as_str()).expect("Could not invoke");
+    extism_pdk::output(result.as_str().expect("Could not convert result to str")).expect("Could not set the output");
+    0
+}
+
+
+// #[no_mangle]
+// pub fn greet() -> i32 {
+//     unsafe {__invoke(1)}
+// }
+
+// #[plugin_fn]
+// pub fn exports(_: ()) -> FnResult<String> {
+//     Ok(export_names()?)
+// }
+
+// #[plugin_fn]
+// pub fn count_vowels(_: ()) -> FnResult<String> {
+//     Ok(invoke("count_vowels".into())?)
+// }
+
+fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
     let global = context.global_object().unwrap();
-    //let module = global.get_property("module")?;
-    let exports = global.get_property("exports")?;
+    let module = global.get_property("module")?;
+    let exports = module.get_property("exports")?;
     let mut properties = exports.properties()?;
     let mut key = properties.next_key()?;
     let mut keys: Vec<String> = vec![];
     while key.is_some() {
        keys.push(key.unwrap().as_str()?.to_string());
-        key = properties.next_key()?;
+       key = properties.next_key()?;
     }
-    Ok(keys.join(","))
+    keys.sort();
+    Ok(keys)
 }

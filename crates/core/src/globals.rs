@@ -25,6 +25,10 @@ where
     console_object.set_property("error", console_error_callback)?;
     global.set_property("console", console_object)?;
 
+    let module_obj = context.object_value()?;
+    module_obj.set_property("exports", context.null_value()?)?;
+    global.set_property("module", module_obj)?;
+
     // Extism Host object
     let host_object = context.object_value()?;
     let host_input_bytes= context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
@@ -38,7 +42,23 @@ where
         ctx.value_from_str(&string)
     })?;
     host_object.set_property("inputString", host_input_string)?;
+
+    let host_output_bytes = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let output = args.get(0).unwrap();
+        extism_pdk::output(output.as_bytes()?)?;
+        ctx.value_from_bool(true)
+    })?;
+    host_object.set_property("outputBytes", host_output_bytes)?;
+
+    let host_output_string = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let output = args.get(0).unwrap();
+        extism_pdk::output(output.as_str()?)?;
+        ctx.value_from_bool(true)
+    })?;
+    host_object.set_property("outputString", host_output_string)?;
+
     global.set_property("Host", host_object)?;
+
 
     Ok(())
 }

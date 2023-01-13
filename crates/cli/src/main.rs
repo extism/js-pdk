@@ -3,12 +3,17 @@ mod opt;
 
 use crate::options::Options;
 use anyhow::{bail, Result};
+use quickjs_wasm_rs::Context;
+use rslint_parser::SyntaxKind;
+use rslint_parser::syntax::expr;
+use wasm_encoder::ValType;
 use std::env;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 use std::{fs, process::Command};
 use structopt::StructOpt;
+use parity_wasm::elements::Instruction;
 
 fn main() -> Result<()> {
     let opts = Options::from_args();
@@ -58,21 +63,115 @@ fn main() -> Result<()> {
 fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8>) -> Result<()> {
     use parity_wasm::elements::*;
 
-    let mut compressed: Vec<u8> = vec![];
-    brotli::enc::BrotliCompress(
-        &mut std::io::Cursor::new(contents),
-        &mut compressed,
-        &brotli::enc::BrotliEncoderParams {
-            quality: 11,
-            ..Default::default()
-        },
-    )?;
+
+    // module
+    //     .sections_mut()
+    //     .push(Section::Custom(CustomSection::new(section, compressed)));
+
+    let code = String::from_utf8(contents)?;
+    let parsed = rslint_parser::parse_text(&code, 0);
+    let mut script_children = parsed.syntax().children();
+    let exported_functions: Option<Vec<String>> = script_children.find_map(|s| {
+        if s.kind() == SyntaxKind::EXPR_STMT {
+            let next = s.first_child()?;
+            if next.kind() == SyntaxKind::ASSIGN_EXPR {
+                let left_hand = next.first_child()?;
+                let right_hand = next.last_child()?;
+                if left_hand.kind() == SyntaxKind::DOT_EXPR {
+                    if left_hand.text().to_string() == "module.exports" {
+                        if right_hand.kind() == SyntaxKind::OBJECT_EXPR {
+                            let functions: Vec<String> = right_hand.children().map(|c| {
+                                if c.kind() == SyntaxKind::IDENT_PROP {
+                                    Some(c.text().to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .filter(|c| c.is_some())
+                            .map(|c| c.unwrap())
+                            .collect();
+                            return Some(functions)
+                        }
+                    }
+                }
+            } 
+        }
+        None
+    });
+
+    let mut exported_functions = exported_functions.unwrap();
+    exported_functions.sort();
 
     let mut module = parity_wasm::deserialize_file(&file)?;
-    module
-        .sections_mut()
-        .push(Section::Custom(CustomSection::new(section, compressed)));
+
+    let invoke_func_idx = if let Some(Internal::Function(idx)) = module.export_section().unwrap().entries().iter().find_map(|e| if e.field() == "__invoke" {Some(e.internal())} else {None}) {
+        idx
+    } else {
+        bail!("Could not find __invoke function")
+    };
+
+    let wrapper_type_idx = module.type_section().unwrap().types().iter().enumerate().find_map(|(idx, t)| {
+        let Type::Function(ft) = t;
+        // we are looking for the function (type () (result i32))
+        // it takes no params and returns an i32. this is the extism call interface
+        if ft.params() == vec![] && ft.results() == vec![ValueType::I32] {
+            Some(idx)
+        } else {
+            None
+        }
+    });
+    
+    // TODO create the type if it doesn't exist
+    let wrapper_type_idx = wrapper_type_idx.unwrap();
+
+    let mut functions = vec![];
+
+    for (func_id, export_name) in exported_functions.iter().enumerate() {
+        let func_body = FuncBody::new(
+            vec![],
+            Instructions::new(vec![
+                Instruction::I32Const(func_id as i32),
+                Instruction::Call(*invoke_func_idx),
+                Instruction::End,
+            ]),
+        );
+        functions.push(func_body);
+    }
+
+    for (idx, f) in functions.into_iter().enumerate() {
+        // put the code body in the code section
+        let bodies = module.code_section_mut().unwrap().bodies_mut();
+        bodies.push(f);
+
+        // put the function type in the function section table
+        let func = Func::new(wrapper_type_idx as u32);
+        module.function_section_mut().unwrap().entries_mut().push(func);
+
+        //get the index of the function we just made
+        let max_func_index = module.functions_space() - 1;
+
+        // put the function in the exports table
+        let export_section = module.export_section_mut().unwrap();
+        let entry = ExportEntry::new(exported_functions.get(idx).unwrap().to_string(), Internal::Function(max_func_index as u32));
+        export_section.entries_mut().push(entry);
+    }
+
     parity_wasm::serialize_to_file(&file, module)?;
 
     Ok(())
+}
+
+fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
+    let global = context.global_object().unwrap();
+    let module = global.get_property("module")?;
+    let exports = module.get_property("exports")?;
+    let mut properties = exports.properties()?;
+    let mut key = properties.next_key()?;
+    let mut keys: Vec<String> = vec![];
+    while key.is_some() {
+       keys.push(key.unwrap().as_str()?.to_string());
+       key = properties.next_key()?;
+    }
+    keys.sort();
+    Ok(keys)
 }

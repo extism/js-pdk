@@ -17,4 +17,8 @@ function greet() {
     return "Hello World from greet! " + Host.inputString()
 }
 
-exports = { greet, count_vowels }
+function greet2() {
+    return "Hello World from greet2! " + Host.inputString()
+}
+
+module.exports = { greet, count_vowels, greet2 }

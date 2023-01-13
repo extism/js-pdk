@@ -11,7 +11,7 @@ name = "extism-js"
 path = "src/main.rs"
 
 [dependencies]
-quickjs-wasm-rs = { git = "https://github.com/Shopify/javy" }
+quickjs-wasm-rs = { git = "https://github.com/Shopify/javy", rev = "5de746fa13d8906f00e8ad11e6a2d1692aa2b23c" }
 anyhow = { workspace = true }
 wasm-encoder = "0.20.0"
 wasmparser = "0.96.0"
@@ -20,3 +20,4 @@ brotli = "3.3.4"
 wizer = "1.6.0"
 structopt = "0.3"
 binaryen = "0.12.0"
+rslint_parser = "0.3.1"
