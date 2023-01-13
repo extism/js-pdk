@@ -1,19 +1,19 @@
-mod options;
 mod opt;
+mod options;
 
 use crate::options::Options;
 use anyhow::{bail, Result};
+use parity_wasm::elements::Instruction;
 use quickjs_wasm_rs::Context;
-use rslint_parser::SyntaxKind;
 use rslint_parser::syntax::expr;
-use wasm_encoder::ValType;
+use rslint_parser::SyntaxKind;
 use std::env;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 use std::{fs, process::Command};
 use structopt::StructOpt;
-use parity_wasm::elements::Instruction;
+use wasm_encoder::ValType;
 
 fn main() -> Result<()> {
     let opts = Options::from_args();
@@ -24,7 +24,9 @@ fn main() -> Result<()> {
         // you probably just came here because you got an error, sorry :)
         // good on you for looking at the code before you came to yell at me.
         // change this to absolute path on your machine and it should work
-        let wasm: &[u8] = include_bytes!("/Users/ben/Code/dylibso/js-pdk/target/wasm32-wasi/release/js_pdk_core.wasm");
+        let wasm: &[u8] = include_bytes!(
+            "/Users/ben/Code/dylibso/js-pdk/target/wasm32-wasi/release/js_pdk_core.wasm"
+        );
         opt::Optimizer::new(wasm)
             .optimize(true)
             .write_optimized_wasm(opts.output)?;
@@ -63,7 +65,6 @@ fn main() -> Result<()> {
 fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8>) -> Result<()> {
     use parity_wasm::elements::*;
 
-
     // module
     //     .sections_mut()
     //     .push(Section::Custom(CustomSection::new(section, compressed)));
@@ -80,21 +81,23 @@ fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8
                 if left_hand.kind() == SyntaxKind::DOT_EXPR {
                     if left_hand.text().to_string() == "module.exports" {
                         if right_hand.kind() == SyntaxKind::OBJECT_EXPR {
-                            let functions: Vec<String> = right_hand.children().map(|c| {
-                                if c.kind() == SyntaxKind::IDENT_PROP {
-                                    Some(c.text().to_string())
-                                } else {
-                                    None
-                                }
-                            })
-                            .filter(|c| c.is_some())
-                            .map(|c| c.unwrap())
-                            .collect();
-                            return Some(functions)
+                            let functions: Vec<String> = right_hand
+                                .children()
+                                .map(|c| {
+                                    if c.kind() == SyntaxKind::IDENT_PROP {
+                                        Some(c.text().to_string())
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .filter(|c| c.is_some())
+                                .map(|c| c.unwrap())
+                                .collect();
+                            return Some(functions);
                         }
                     }
                 }
-            } 
+            }
         }
         None
     });
@@ -104,23 +107,40 @@ fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8
 
     let mut module = parity_wasm::deserialize_file(&file)?;
 
-    let invoke_func_idx = if let Some(Internal::Function(idx)) = module.export_section().unwrap().entries().iter().find_map(|e| if e.field() == "__invoke" {Some(e.internal())} else {None}) {
+    let invoke_func_idx = if let Some(Internal::Function(idx)) = module
+        .export_section()
+        .unwrap()
+        .entries()
+        .iter()
+        .find_map(|e| {
+            if e.field() == "__invoke" {
+                Some(e.internal())
+            } else {
+                None
+            }
+        }) {
         idx
     } else {
         bail!("Could not find __invoke function")
     };
 
-    let wrapper_type_idx = module.type_section().unwrap().types().iter().enumerate().find_map(|(idx, t)| {
-        let Type::Function(ft) = t;
-        // we are looking for the function (type () (result i32))
-        // it takes no params and returns an i32. this is the extism call interface
-        if ft.params() == vec![] && ft.results() == vec![ValueType::I32] {
-            Some(idx)
-        } else {
-            None
-        }
-    });
-    
+    let wrapper_type_idx = module
+        .type_section()
+        .unwrap()
+        .types()
+        .iter()
+        .enumerate()
+        .find_map(|(idx, t)| {
+            let Type::Function(ft) = t;
+            // we are looking for the function (type () (result i32))
+            // it takes no params and returns an i32. this is the extism call interface
+            if ft.params() == vec![] && ft.results() == vec![ValueType::I32] {
+                Some(idx)
+            } else {
+                None
+            }
+        });
+
     // TODO create the type if it doesn't exist
     let wrapper_type_idx = wrapper_type_idx.unwrap();
 
@@ -145,14 +165,21 @@ fn add_custom_section<P: AsRef<Path>>(file: P, section: String, contents: Vec<u8
 
         // put the function type in the function section table
         let func = Func::new(wrapper_type_idx as u32);
-        module.function_section_mut().unwrap().entries_mut().push(func);
+        module
+            .function_section_mut()
+            .unwrap()
+            .entries_mut()
+            .push(func);
 
         //get the index of the function we just made
         let max_func_index = module.functions_space() - 1;
 
         // put the function in the exports table
         let export_section = module.export_section_mut().unwrap();
-        let entry = ExportEntry::new(exported_functions.get(idx).unwrap().to_string(), Internal::Function(max_func_index as u32));
+        let entry = ExportEntry::new(
+            exported_functions.get(idx).unwrap().to_string(),
+            Internal::Function(max_func_index as u32),
+        );
         export_section.entries_mut().push(entry);
     }
 
@@ -169,8 +196,8 @@ fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
     let mut key = properties.next_key()?;
     let mut keys: Vec<String> = vec![];
     while key.is_some() {
-       keys.push(key.unwrap().as_str()?.to_string());
-       key = properties.next_key()?;
+        keys.push(key.unwrap().as_str()?.to_string());
+        key = properties.next_key()?;
     }
     keys.sort();
     Ok(keys)

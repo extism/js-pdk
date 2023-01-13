@@ -1,9 +1,9 @@
 use extism_pdk::bindings::extism_output_set;
-use quickjs_wasm_rs::Context;
 use extism_pdk::*;
-use std::io::{Read};
-use std::io;
 use once_cell::sync::OnceCell;
+use quickjs_wasm_rs::Context;
+use std::io;
+use std::io::Read;
 
 mod globals;
 
@@ -37,15 +37,18 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let code = unsafe { CODE.take().unwrap() };
     let context = unsafe { CONTEXT.take().unwrap() };
 
-    let log_stream =  io::stderr();
+    let log_stream = io::stderr();
     let error_stream = io::stderr();
-    globals::inject_globals(&context, log_stream, error_stream).expect("Failed to initialize globals");
+    globals::inject_globals(&context, log_stream, error_stream)
+        .expect("Failed to initialize globals");
 
     let _ = context.eval_global("script.js", &code).unwrap();
 
     let export_funcs = export_names(&context).expect("Could not parse exports");
     let func_name = export_funcs.get(func_idx as usize).unwrap();
-    let result = context.eval_global("script.js", format!("{}();", func_name).as_str()).expect("Could not invoke");
+    let result = context
+        .eval_global("script.js", format!("{}();", func_name).as_str())
+        .expect("Could not invoke");
     result.as_i32_unchecked()
     // extism_pdk::output(result.as_str().expect("Could not convert result to str")).expect("Could not set the output");
     // 0
@@ -64,8 +67,8 @@ fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
     let mut key = properties.next_key()?;
     let mut keys: Vec<String> = vec![];
     while key.is_some() {
-       keys.push(key.unwrap().as_str()?.to_string());
-       key = properties.next_key()?;
+        keys.push(key.unwrap().as_str()?.to_string());
+        key = properties.next_key()?;
     }
     keys.sort();
     Ok(keys)
