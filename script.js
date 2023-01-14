@@ -22,8 +22,10 @@ function greet() {
 function greet2() {
     console.log("console log")
     console.error("console error")
-    Host.outputString("Hello World from greet2! " + Host.inputString())
+    Var.set("thing", "variable value")
+    //Host.outputString("Hello World from greet2! " + Host.inputString())
+    Host.outputBytes(Var.get("thing"))
     return 0
 }
 
-module.exports = { greet, count_vowels, greet2, echo };
+module.exports = { greet, count_vowels, greet2 };
