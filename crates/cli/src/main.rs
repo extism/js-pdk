@@ -133,16 +133,14 @@ fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result
     let mut function_bodies = vec![];
 
     for (func_id, _export_name) in exported_functions.iter().enumerate() {
-        function_bodies.push(
-            FuncBody::new(
-                vec![],
-                Instructions::new(vec![
-                    Instruction::I32Const(func_id as i32),
-                    Instruction::Call(*invoke_func_idx),
-                    Instruction::End,
-                ]),
-            )
-        );
+        function_bodies.push(FuncBody::new(
+            vec![],
+            Instructions::new(vec![
+                Instruction::I32Const(func_id as i32),
+                Instruction::Call(*invoke_func_idx),
+                Instruction::End,
+            ]),
+        ));
     }
 
     for (idx, f) in function_bodies.into_iter().enumerate() {

@@ -1,12 +1,9 @@
 use anyhow::anyhow;
-use extism_pdk::bindings::{extism_load_input};
+use extism_pdk::bindings::extism_load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{Context, Value};
 
-pub fn inject_globals(
-    context: &Context,
-) -> anyhow::Result<()>
-{
+pub fn inject_globals(context: &Context) -> anyhow::Result<()> {
     let module = build_module_ojbect(&context)?;
     let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
@@ -22,22 +19,25 @@ pub fn inject_globals(
 }
 
 fn build_console_object(context: &Context) -> anyhow::Result<Value> {
-    let console_log_callback = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-        let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
-        let stmt = stmt.as_str()?;
-        info!("{}", stmt);
-        ctx.undefined_value()
-    })?;
-    let console_error_callback = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-        let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
-        let stmt = stmt.as_str()?;
-        error!("{}", stmt);
-        ctx.undefined_value()
-    })?;
+    let console_log_callback =
+        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = stmt.as_str()?;
+            info!("{}", stmt);
+            ctx.undefined_value()
+        })?;
+    let console_error_callback =
+        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = stmt.as_str()?;
+            error!("{}", stmt);
+            ctx.undefined_value()
+        })?;
 
     let console_object = context.object_value()?;
     console_object.set_property("log", console_log_callback)?;
     console_object.set_property("error", console_error_callback)?;
+
     Ok(console_object)
 }
 
@@ -82,34 +82,31 @@ fn build_host_object(context: &Context) -> anyhow::Result<Value> {
     Ok(host_object)
 }
 
-
 fn build_var_object(context: &Context) -> anyhow::Result<Value> {
-    let var_set =
-        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-            let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
-            let data = args.get(1).ok_or(anyhow!("Expected data argument"))?;
+    let var_set = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+        let data = args.get(1).ok_or(anyhow!("Expected data argument"))?;
 
-            if data.is_str() {
-                var::set(var_name.as_str()?, data.as_str()?)?;
-            } else if data.is_array_buffer() {
-                var::set(var_name.as_str()?, data.as_bytes()?)?;
-            }
+        if data.is_str() {
+            var::set(var_name.as_str()?, data.as_str()?)?;
+        } else if data.is_array_buffer() {
+            var::set(var_name.as_str()?, data.as_bytes()?)?;
+        }
 
-            ctx.undefined_value()
-        })?;
-
-    let var_get =
-        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-            let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
-            let data = var::get::<Vec<u8>>(var_name.as_str()?)?;
-            match data {
-                Some(d) => ctx.array_buffer_value(d.as_slice()),
-                None => ctx.null_value(),
-            }
-        })?;
+        ctx.undefined_value()
+    })?;
+    let var_get = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+        let data = var::get::<Vec<u8>>(var_name.as_str()?)?;
+        match data {
+            Some(d) => ctx.array_buffer_value(d.as_slice()),
+            None => ctx.null_value(),
+        }
+    })?;
 
     let var_object = context.object_value()?;
     var_object.set_property("set", var_set)?;
     var_object.set_property("get", var_get)?;
+
     Ok(var_object)
 }

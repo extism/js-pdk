@@ -30,8 +30,7 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let code = unsafe { CODE.take().unwrap() };
     let context = unsafe { CONTEXT.take().unwrap() };
 
-    globals::inject_globals(&context)
-        .expect("Failed to initialize globals");
+    globals::inject_globals(&context).expect("Failed to initialize globals");
 
     let _ = context
         .eval_global("script.js", &code)
