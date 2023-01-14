@@ -6,23 +6,25 @@
 
 This PDK uses [QuickJS](https://bellard.org/quickjs/) and [wizer](https://github.com/bytecodealliance/wizer) to run javascript as an Extism Plug-in.
 
-This is essentially a fork of [javy](https://github.com/Shopify/javy) by Shopify. We may wish to collaborate and upstream some things to them. For the time being I built this up from scratch using some of their crates, namely QuickJS-wasm-rs.
+This is essentially a fork of [Javy](https://github.com/Shopify/javy) by Shopify. We may wish to collaborate and upstream some things to them. For the time being I built this up from scratch using some of their crates, namely quickjs-wasm-rs.
 
 ## How it works
 
 This works a little differently than other PDKs. You cannot compile JS to Wasm because it doesn't have an appropriate type system to do this. Something like [Assemblyscript](https://www.assemblyscript.org/) is better suited for this. Instead, we have compiled QuickJS to Wasm. The `extism-js` command we have provided here is a little compiler / wrapper that does a series of things for you:
 
-1. It loads an "engine" Wasm programming containing just the QuickJS 
-2. It initializes the QuickJS context
-3. It loads your source code into memory
-4. It parses the source code for exports and generates 1-to-1 proxy export functions in Wasm
-5. It emits a freezes the machine state and emits a new Wasm file at that post-initialized point in time
+1. It loads an "engine" Wasm program containing the QuickJS runtime
+2. It initializes a QuickJS context
+3. It loads your js source code into memory
+4. It parses the js source code for exports and generates 1-to-1 proxy export functions in Wasm
+5. It freezes and emits the machine state as a new Wasm file at this post-initialized point in time
 
-This new Wasm file can be used just like another Extism plugin.
+This new Wasm file can be used just like any other Extism plugin.
 
 ## Install the compiler
 
-We now have released binaries. Check the [releases](/releases) page for the latest. I can't give windows instructions yet but this should work for mac and linux:
+We now have released binaries. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
+
+> **Note**: I can't give windows instructions yet but this should work for mac and linux:
 
 ```bash
 export TAG=v0.1.1
@@ -45,7 +47,7 @@ USAGE:
 For more information try --help
 ```
 
-> **Note**: If you are using mac you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the compile from source section below.
+> **Note**: If you are using mac, you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the "compile from source" section below.
 
 Try it on a script file. Name this `script.js`:
 
@@ -94,8 +96,6 @@ We will better support module systems in the future but for now we are hard codi
 
 ## Compiling the compiler from source
 
-You need to compile from source at the moment. Here are the instructions:
-
 You need the wasi sdk which can be fetched with the makefile:
 
 ```
@@ -108,27 +108,18 @@ Then run make to compile the core crate (the engine) and the cli:
 make
 ```
 
-You now have a CLI that will allow you to create an Extism compatible Wasm program from a JS file. There is one in the root of this directory called [script.js](/script.js).
-
-
-```
+```bash
 ./target/release/extism-js script.js -o out.wasm
-```
-
-You can now use this in Extism:
-
-```
 extism call out.wasm count_vowels --wasi --input="Hello World Test!"
-
-"{\"count\":4}"
+# => "{\"count\":4}"
 ```
 
 ## Why not use Javy?
 
-Javy, and many other high level language Wasm tools, assume use of the *command pattern*. This is when the Wasm module only exports a main function and communicates with the host through stdin and stdout. With Extism, we have more of a library approach. The module exposes multiple entry points through exported functions. Furthermore, Javy has many Javy and Shopify specific things it's doing that we will not need. However the core idea is the same and we can possibly contribute by adding support to Javy for non-command-pattern modules. Then separating the Extism PDK specific stuff into another repo.
+Javy, and many other high level language Wasm tools, assume use of the *command pattern*. This is when the Wasm module only exports a main function and communicates with the host through stdin and stdout. With Extism, we have more of a shared library interface. The module exposes multiple entry points through exported functions. Furthermore, Javy has many Javy and Shopify specific things it's doing that we will not need. However, the core idea is the same, and we can possibly contribute by adding support to Javy for non-command-pattern modules. Then separating the Extism PDK specific stuff into another repo.
 
 ## What needs to be done?
 
 I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
 
-We need to finish the binding of the Extism PDK functions to the JS world. This is not too hard with QuickJS-wasm-rs. We should mostly use all the code already written in rust and just map to JS types. 
+We need to finish the binding of the Extism PDK functions to the JS world. This is not too hard with quickjs-wasm-rs. We should mostly use all the code already written in rust and just map to JS types. 
