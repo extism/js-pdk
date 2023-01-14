@@ -20,8 +20,8 @@ pub fn inject_globals(
     // console_object.set_property("error", console_error_callback)?;
     // global.set_property("console", console_object)?;
 
-    let module = create_module_ojbect(&context)?;
-    let host = create_host_object(&context)?;
+    let module = build_module_ojbect(&context)?;
+    let host = build_host_object(&context)?;
 
     global.set_property("module", module)?;
     global.set_property("Host", host)?;
@@ -29,14 +29,14 @@ pub fn inject_globals(
     Ok(())
 }
 
-fn create_module_ojbect(context: &Context) -> anyhow::Result<Value> {
+fn build_module_ojbect(context: &Context) -> anyhow::Result<Value> {
     let module_obj = context.object_value()?;
     let exports = context.object_value()?;
     module_obj.set_property("exports", exports)?;
     Ok(module_obj)
 }
 
-fn create_host_object(context: &Context) -> anyhow::Result<Value> {
+fn build_host_object(context: &Context) -> anyhow::Result<Value> {
     let host_object = context.object_value()?;
     let host_input_bytes =
         context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
