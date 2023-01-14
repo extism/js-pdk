@@ -20,6 +20,8 @@ function greet() {
 }
 
 function greet2() {
+    console.log("console log")
+    console.error("console error")
     Host.outputString("Hello World from greet2! " + Host.inputString())
     return 0
 }

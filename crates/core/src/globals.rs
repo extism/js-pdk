@@ -12,21 +12,34 @@ pub fn inject_globals(
 {
     let global = context.global_object()?;
 
-    // TODO these should proxy to extism_pdk's log functions
-    // let console_log_callback = context.wrap_callback(console_log_to(log_stream))?;
-    // let console_error_callback = context.wrap_callback(console_log_to(error_stream))?;
-    // let console_object = context.object_value()?;
-    // console_object.set_property("log", console_log_callback)?;
-    // console_object.set_property("error", console_error_callback)?;
-    // global.set_property("console", console_object)?;
-
     let module = build_module_ojbect(&context)?;
+    let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
 
+    global.set_property("console", console)?;
     global.set_property("module", module)?;
     global.set_property("Host", host)?;
 
     Ok(())
+}
+
+fn build_console_object(context: &Context) -> anyhow::Result<Value> {
+    let console_log_callback = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+        let stmt = stmt.as_str()?;
+        info!("{}", stmt);
+        ctx.undefined_value()
+    })?;
+    let console_error_callback = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+        let stmt = stmt.as_str()?;
+        error!("{}", stmt);
+        ctx.undefined_value()
+    })?;
+    let console_object = context.object_value()?;
+    console_object.set_property("log", console_log_callback)?;
+    console_object.set_property("error", console_error_callback)?;
+    Ok(console_object)
 }
 
 fn build_module_ojbect(context: &Context) -> anyhow::Result<Value> {
@@ -39,12 +52,12 @@ fn build_module_ojbect(context: &Context) -> anyhow::Result<Value> {
 fn build_host_object(context: &Context) -> anyhow::Result<Value> {
     let host_object = context.object_value()?;
     let host_input_bytes =
-        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        context.wrap_callback(|ctx: &Context, _this: &Value, _args: &[Value]| {
             let input = unsafe { extism_load_input() };
             ctx.array_buffer_value(&input)
         })?;
     let host_input_string =
-        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        context.wrap_callback(|ctx: &Context, _this: &Value, _args: &[Value]| {
             let input = unsafe { extism_load_input() };
             let string = String::from_utf8(input)?;
             ctx.value_from_str(&string)
