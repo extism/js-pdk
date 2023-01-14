@@ -47,9 +47,11 @@ For more information try --help
 
 > **Note**: If you are using mac you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the compile from source section below.
 
-Try it on a script (script.js):
+Try it on a script file. Name this `script.js`:
 
 ```javascript
+// script.js
+
 const VOWELS = [
     'a', 'e', 'i', 'o', 'u',
 ]
