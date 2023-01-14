@@ -10,12 +10,11 @@ pub fn inject_globals(
     context: &Context,
 ) -> anyhow::Result<()>
 {
-    let global = context.global_object()?;
-
     let module = build_module_ojbect(&context)?;
     let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
 
+    let global = context.global_object()?;
     global.set_property("console", console)?;
     global.set_property("module", module)?;
     global.set_property("Host", host)?;

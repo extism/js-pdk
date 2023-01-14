@@ -26,4 +26,4 @@ function greet2() {
     return 0
 }
 
-module.exports = { greet, count_vowels, greet2 };
+module.exports = { greet, count_vowels, greet2, echo };
