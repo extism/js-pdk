@@ -29,21 +29,17 @@ fn copy_engine_binary() {
         override_engine_path.unwrap_or_else(|_| env::var("CARGO_MANIFEST_DIR").unwrap()),
     );
 
-    dbg!(&engine_path);
     if !is_override {
         engine_path.pop();
         engine_path.pop();
         engine_path = engine_path.join("target/wasm32-wasi/release/js_pdk_core.wasm");
     }
-    dbg!(&engine_path);
 
     println!("cargo:rerun-if-changed={}", engine_path.to_str().unwrap());
     println!("cargo:rerun-if-changed=build.rs");
 
     if engine_path.exists() {
-        dbg!("Engine path eexists");
         let copied_engine_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("engine.wasm");
         fs::copy(&engine_path, copied_engine_path).unwrap();
     }
-    dbg!("Engine path done");
 }

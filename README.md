@@ -32,10 +32,10 @@ We will better support module systems in the future but for now we are hard codi
 
 You need to compile from source at the moment. Here are the instructions:
 
-You need the WASI SDK and the latest rust to compile. See Javy repo on how to get WASI SDK. Set this env variable to the directory
+You need the wasi sdk which can be fetched with the makefile:
 
 ```
-export QUICKJS_WASM_SYS_WASI_SDK_PATH=/Users/ben/Code/wasi-sdk/dist/wasi-sdk-16.5ga0a342ac182c
+make download-wasi-sdk
 ```
 
 Then run make to compile the core crate (the engine) and the cli:
@@ -62,6 +62,6 @@ extism call out.wasm count_vowels --wasi --input="Hello World Test!"
 
 ## What needs to be done?
 
-I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon and maybe it can be replaced with something simpler.
+I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
 
 We need to finish the binding of the Extism PDK functions to the JS world. This is not too hard with quickjs-wasm-rs. We should mostly use all the code already written in rust and just map to JS types. 
