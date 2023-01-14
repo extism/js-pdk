@@ -78,7 +78,7 @@ jobs:
       - name: Build CLI ${{ matrix.os }}
         env:
           EXTISM_ENGINE_PATH: js_pdk_core.wasm
-        run: cargo build --release --package extism-js
+        run: cargo build --release --package js-pdk-cli
 
       - name: Archive assets
         run: gzip -k -f ${{ matrix.path }} && mv ${{ matrix.path }}.gz ${{ matrix.asset_name }}.gz
