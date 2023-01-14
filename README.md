@@ -1,6 +1,6 @@
 # Extism JavaScript PDK
 
-**Note**: This is very experimental. If you are interested in helping or following development, join the [#js-pdk](https://discord.gg/ZACPSVz9) room in our discord channel.
+> **Note**: This is very experimental. If you are interested in helping or following development, join the [#js-pdk](https://discord.gg/ZACPSVz9) room in our discord channel.
 
 ## Overview
 
