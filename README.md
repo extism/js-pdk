@@ -27,7 +27,7 @@ We now have released binaries. Check the [releases](https://github.com/extism/js
 > **Note**: I can't give windows instructions yet but this should work for mac and linux:
 
 ```bash
-export TAG=v0.1.1
+export TAG=v0.2.0
 wget "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-x86_64-macos-$TAG.gz"
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
