@@ -16,13 +16,7 @@ fn main() -> Result<()> {
     let wizen = env::var("EXTISM_WIZEN");
 
     if wizen.eq(&Ok("1".into())) {
-        //let wasm: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine.wasm"));
-        // you probably just came here because you got an error, sorry :)
-        // good on you for looking at the code before you came to yell at me.
-        // change this to absolute path on your machine and it should work
-        let wasm: &[u8] = include_bytes!(
-            "/Users/ben/Code/dylibso/js-pdk/target/wasm32-wasi/release/js_pdk_core.wasm"
-        );
+        let wasm: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine.wasm"));
         opt::Optimizer::new(wasm)
             .optimize(true)
             .write_optimized_wasm(opts.output)?;
@@ -136,21 +130,22 @@ fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result
     // TODO create the type if it doesn't exist
     let wrapper_type_idx = wrapper_type_idx.unwrap();
 
-    let mut functions = vec![];
+    let mut function_bodies = vec![];
 
-    for (func_id, export_name) in exported_functions.iter().enumerate() {
-        let func_body = FuncBody::new(
-            vec![],
-            Instructions::new(vec![
-                Instruction::I32Const(func_id as i32),
-                Instruction::Call(*invoke_func_idx),
-                Instruction::End,
-            ]),
+    for (func_id, _export_name) in exported_functions.iter().enumerate() {
+        function_bodies.push(
+            FuncBody::new(
+                vec![],
+                Instructions::new(vec![
+                    Instruction::I32Const(func_id as i32),
+                    Instruction::Call(*invoke_func_idx),
+                    Instruction::End,
+                ]),
+            )
         );
-        functions.push(func_body);
     }
 
-    for (idx, f) in functions.into_iter().enumerate() {
+    for (idx, f) in function_bodies.into_iter().enumerate() {
         // put the code body in the code section
         let bodies = module.code_section_mut().unwrap().bodies_mut();
         bodies.push(f);
