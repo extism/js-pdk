@@ -27,4 +27,8 @@ function greet2() {
     return 0
 }
 
-module.exports = { greet, count_vowels, greet2 };
+function i_error_out() {
+    throw Error("I am an error")
+}
+
+module.exports = { greet, count_vowels, greet2, i_error_out };

@@ -85,7 +85,7 @@ For the most part, you can write your JS how you want. In order to export a func
 
 ```javascript
 
-func myFunc() {
+function myFunc() {
     //...
 }
 
@@ -130,6 +130,7 @@ Implemented so far:
 * Var.set
 * console.log
 * console.error
+* throw Error
 
 The above are implemented but need some more validation and resilience built into them. debating whether I should implement the bulk of the code in js or rust. Working on implementing the other pdk methods.
 
