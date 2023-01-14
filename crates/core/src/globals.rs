@@ -6,24 +6,19 @@ use std::borrow::Cow;
 use std::io::{Read, Write};
 use std::str;
 
-pub fn inject_globals<T1, T2>(
+pub fn inject_globals(
     context: &Context,
-    log_stream: T1,
-    error_stream: T2,
 ) -> anyhow::Result<()>
-where
-    T1: Write + 'static,
-    T2: Write + 'static,
 {
     let global = context.global_object()?;
 
     // TODO these should proxy to extism_pdk's log functions
-    let console_log_callback = context.wrap_callback(console_log_to(log_stream))?;
-    let console_error_callback = context.wrap_callback(console_log_to(error_stream))?;
-    let console_object = context.object_value()?;
-    console_object.set_property("log", console_log_callback)?;
-    console_object.set_property("error", console_error_callback)?;
-    global.set_property("console", console_object)?;
+    // let console_log_callback = context.wrap_callback(console_log_to(log_stream))?;
+    // let console_error_callback = context.wrap_callback(console_log_to(error_stream))?;
+    // let console_object = context.object_value()?;
+    // console_object.set_property("log", console_log_callback)?;
+    // console_object.set_property("error", console_error_callback)?;
+    // global.set_property("console", console_object)?;
 
     let module_obj = context.object_value()?;
     module_obj.set_property("exports", context.null_value()?)?;

@@ -11,7 +11,7 @@ static mut CODE: OnceCell<String> = OnceCell::new();
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
     let context = Context::default();
-    globals::inject_globals(&context, io::stderr(), io::stderr()).unwrap();
+    globals::inject_globals(&context).expect("Failed to initialize globals");
 
     let mut contents = String::new();
     io::stdin().read_to_string(&mut contents).unwrap();
@@ -30,9 +30,7 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let code = unsafe { CODE.take().unwrap() };
     let context = unsafe { CONTEXT.take().unwrap() };
 
-    let log_stream = io::stderr();
-    let error_stream = io::stderr();
-    globals::inject_globals(&context, log_stream, error_stream)
+    globals::inject_globals(&context)
         .expect("Failed to initialize globals");
 
     let _ = context
