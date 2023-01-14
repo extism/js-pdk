@@ -120,6 +120,17 @@ Javy, and many other high level language Wasm tools, assume use of the *command 
 
 ## What needs to be done?
 
-I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
+Implemented so far:
 
-We need to finish the binding of the Extism PDK functions to the JS world. This is not too hard with quickjs-wasm-rs. We should mostly use all the code already written in rust and just map to JS types. 
+* Host.inputBytes
+* Host.inputString
+* Host.outputBytes
+* Host.outputString
+* Var.get
+* Var.set
+* console.log
+* console.error
+
+The above are implemented but need some more validation and resilience built into them. debating whether I should implement the bulk of the code in js or rust. Working on implementing the other pdk methods.
+
+I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
