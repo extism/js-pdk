@@ -3,13 +3,15 @@ mod options;
 
 use crate::options::Options;
 use anyhow::{bail, Result};
-use rslint_parser::SyntaxKind;
+//use rslint_parser::SyntaxKind;
 use std::env;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 use std::{fs, process::Command};
 use structopt::StructOpt;
+use quick_js::{Context};
+
 
 fn main() -> Result<()> {
     let opts = Options::from_args();
@@ -56,39 +58,13 @@ fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result
     use parity_wasm::elements::*;
 
     let code = String::from_utf8(contents)?;
-    let parsed = rslint_parser::parse_text(&code, 0);
-    let mut script_children = parsed.syntax().children();
-    let exported_functions: Option<Vec<String>> = script_children.find_map(|s| {
-        if s.kind() == SyntaxKind::EXPR_STMT {
-            let next = s.first_child()?;
-            if next.kind() == SyntaxKind::ASSIGN_EXPR {
-                let left_hand = next.first_child()?;
-                let right_hand = next.last_child()?;
-                if left_hand.kind() == SyntaxKind::DOT_EXPR {
-                    if left_hand.text().to_string() == "module.exports" {
-                        if right_hand.kind() == SyntaxKind::OBJECT_EXPR {
-                            let functions: Vec<String> = right_hand
-                                .children()
-                                .map(|c| {
-                                    if c.kind() == SyntaxKind::IDENT_PROP {
-                                        Some(c.text().to_string())
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .filter(|c| c.is_some())
-                                .map(|c| c.unwrap())
-                                .collect();
-                            return Some(functions);
-                        }
-                    }
-                }
-            }
-        }
-        None
-    });
 
-    let mut exported_functions = exported_functions.unwrap();
+    let context = Context::new().unwrap();
+    let _ = context.eval("module = {exports: {}}").unwrap();
+    let _ = context.eval(&code).unwrap();
+    let global_functions = context.eval_as::<Vec<String>>("Object.keys(module.exports)").unwrap();
+
+    let mut exported_functions: Vec<String> = global_functions.into_iter().filter(|name| name != "module").collect();
     exported_functions.sort();
 
     let mut module = parity_wasm::deserialize_file(&file)?;

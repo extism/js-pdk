@@ -1,5 +1,5 @@
 use extism_pdk::bindings::extism_error_set;
-use extism_pdk::{error, Memory, unwrap};
+use extism_pdk::Memory;
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::Context;
 use std::io;
