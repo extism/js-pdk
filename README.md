@@ -75,7 +75,7 @@ const VOWELS = [
     'a', 'e', 'i', 'o', 'u',
 ]
 
-function count_vowels() {
+export function count_vowels() {
     let input = Host.inputString()
     let count = 0
     for (let i = 0; i < input.length; i++) {
@@ -86,8 +86,6 @@ function count_vowels() {
     Host.outputString(JSON.stringify({count}))
     return 0
 }
-
-module.exports = { count_vowels };
 ```
 
 ```bash
@@ -95,21 +93,6 @@ extism-js script.js -o count_vowels.wasm
 extism call count_vowels.wasm count_vowels --input="Hello World!" --wasi
 # => {"count":3}                          
 ```
-
-## Exports in JS
-
-For the most part, you can write your JS how you want. In order to export a function to Extism you must use this `module.exports = {f1, f2, ..}` syntax:
-
-```javascript
-
-function myFunc() {
-    //...
-}
-
-module.exports = { myFunc }
-```
-
-We will better support module systems in the future but for now we are hard coding the compiler to this one export syntax.
 
 ## Compiling the compiler from source
 
