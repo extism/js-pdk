@@ -50,11 +50,11 @@ jobs:
             path: target/release/extism-js
             asset_name: extism-js-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
-          - name: windows
-            os: windows-latest
-            path: target\release\extism-js.exe
-            asset_name: extism-js-x86_64-windows-${{ github.event.release.tag_name }}
-            shasum_cmd: sha256sum
+          # - name: windows
+          #   os: windows-latest
+          #   path: target\release\extism-js.exe
+          #   asset_name: extism-js-x86_64-windows-${{ github.event.release.tag_name }}
+          #   shasum_cmd: sha256sum
 
     steps:
       - uses: actions/checkout@v1
