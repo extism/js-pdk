@@ -31,7 +31,7 @@ We now have released binaries. Check the [releases](https://github.com/extism/js
 Run the script below to install on Mac:
 
 ```bash
-export TAG=v0.2.0
+export TAG=v0.3.0
 curl -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-x86_64-macos-$TAG.gz"
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
@@ -43,7 +43,7 @@ chmod +x /usr/local/bin/extism-js
 Run the script below to install on Linux:
 
 ```bash
-export TAG=v0.2.0
+export TAG=v0.3.0
 curl -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-x86_64-linux-$TAG.gz"
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
