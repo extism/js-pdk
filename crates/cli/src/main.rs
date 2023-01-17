@@ -3,15 +3,13 @@ mod options;
 
 use crate::options::Options;
 use anyhow::{bail, Result};
-//use rslint_parser::SyntaxKind;
+use quick_js::Context;
 use std::env;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Stdio;
 use std::{fs, process::Command};
 use structopt::StructOpt;
-use quick_js::{Context};
-
 
 fn main() -> Result<()> {
     let opts = Options::from_args();
@@ -62,9 +60,14 @@ fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result
     let context = Context::new().unwrap();
     let _ = context.eval("module = {exports: {}}").unwrap();
     let _ = context.eval(&code).unwrap();
-    let global_functions = context.eval_as::<Vec<String>>("Object.keys(module.exports)").unwrap();
+    let global_functions = context
+        .eval_as::<Vec<String>>("Object.keys(module.exports)")
+        .unwrap();
 
-    let mut exported_functions: Vec<String> = global_functions.into_iter().filter(|name| name != "module").collect();
+    let mut exported_functions: Vec<String> = global_functions
+        .into_iter()
+        .filter(|name| name != "module")
+        .collect();
     exported_functions.sort();
 
     let mut module = parity_wasm::deserialize_file(&file)?;
