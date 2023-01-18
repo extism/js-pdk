@@ -94,6 +94,99 @@ extism call count_vowels.wasm count_vowels --input="Hello World!" --wasi
 # => {"count":3}                          
 ```
 
+## Using with a bundler
+
+The compiler cli and core engine can now run bundled code. You will want to use a bundler
+if you want to want to or include modules from NPM, or write the plugin in Typescript, for example.
+
+There are 2 primary constraints to using a bundler:
+
+1. Your compiled output must be CJS format, not ESM
+2. You must target es2020 or lower
+
+
+### Using with esbuild
+
+The easiest way to set this up would be to use esbuild. The following is a quickstart guide to setting up a project:
+
+```
+# Make a new JS project
+mkdir extism-plugin
+cd extism-plugin
+npm init -y
+npm install --save-dev
+```
+
+
+Add `esbuild.js`:
+
+```js
+const esbuild = require('esbuild');
+
+esbuild
+    .build({
+        entryPoints: ['src/index.js'],
+        outdir: 'dist',
+        bundle: true,
+        sourcemap: true,
+        minify: false, // might want to use true for production build
+        format: 'cjs', // needs to be CJS for now
+        target: ['es2020'] // don't go over es2020 because quickjs doesn't support it
+    })
+```
+
+make some directories
+
+```bash
+mkdir src
+mkdir dist
+```
+
+Add a `build` script to your `package.json`:
+
+```json
+{
+  "name": "extism-plugin",
+  // ...
+  "scripts": {
+    // ...
+    "build": "node esbuild.js && extism-js dist/index.js -o dist/plugin.wasm"
+  },
+  // ...
+}
+```
+
+Let's import a module from NPM:
+
+```bash
+npm install --save fastest-levenshtein
+```
+
+Now make some code in `src/index.js`. You can use `import` to load node_modules:
+
+```js
+import {distance, closest} from 'fastest-levenshtein'
+
+// this function is private to the module
+function privateFunc() { return 'world' }
+
+// use any export syntax to export a function be callable by the extism host
+export function get_closest() {
+  let input = Host.inputString()
+  let result = closest(input, ['slow', 'faster', 'fastest'])
+  Host.outputString(result + ' ' + privateFunc())
+  return 0
+}
+```
+
+```bash
+# Run the build script and the plugin will be compiled to dist/plugin.wasm
+npm run build
+# You can now call from the extism cli or a host SDK
+extism call dist/plugin.wasm get_closest --input="fest" --wasi
+faster World
+```
+
 ## Compiling the compiler from source
 
 You need the wasi sdk which can be fetched with the makefile:
