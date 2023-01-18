@@ -109,12 +109,14 @@ There are 2 primary constraints to using a bundler:
 
 The easiest way to set this up would be to use esbuild. The following is a quickstart guide to setting up a project:
 
-```
+```bash
 # Make a new JS project
 mkdir extism-plugin
 cd extism-plugin
 npm init -y
 npm install --save-dev
+mkdir src
+mkdir dist
 ```
 
 
@@ -133,13 +135,6 @@ esbuild
         format: 'cjs', // needs to be CJS for now
         target: ['es2020'] // don't go over es2020 because quickjs doesn't support it
     })
-```
-
-make some directories
-
-```bash
-mkdir src
-mkdir dist
 ```
 
 Add a `build` script to your `package.json`:
