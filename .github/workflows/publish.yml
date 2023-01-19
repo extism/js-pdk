@@ -48,7 +48,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - name: linux-arm64
             os: ubuntu-latest
-            path: target/release/extism-js
+            path: target/x86_64-unknown-linux-gnu/release/extism-js
             asset_name: extism-js-aarch64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: aarch64-unknown-linux-gnu
@@ -60,7 +60,7 @@ jobs:
             target: x86_64-apple-darwin
           - name: macos-arm64
             os: macos-latest
-            path: target/release/extism-js
+            path: target/aarch64-apple-darwin/release/extism-js
             asset_name: extism-js-aarch64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: aarch64-apple-darwin
@@ -90,10 +90,17 @@ jobs:
           toolchain: 1.66.0
           default: true
 
+      - name: Install gnu gcc
+        run: |
+          sudo apt-get update
+          sudo apt-get install g++-aarch64-linux-gnu
+          sudo apt-get install gcc-aarch64-linux-gnu
+        if: matrix.os == 'ubuntu-latest'
+
       - name: Build CLI ${{ matrix.os }}
         env:
           EXTISM_ENGINE_PATH: js_pdk_core.wasm
-        run: cargo build --release --package js-pdk-cli
+        run: cargo build --release --target ${{ matrix.target }} --package js-pdk-cli
 
       - name: Archive assets
         run: gzip -k -f ${{ matrix.path }} && mv ${{ matrix.path }}.gz ${{ matrix.asset_name }}.gz
@@ -123,12 +130,12 @@ jobs:
           name: ${{ matrix.asset_name }}.gz.sha256
           path: ${{ matrix.asset_name }}.gz.sha256
 
-      - name: Upload asset hash to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ matrix.asset_name }}.gz.sha256
-          asset_name: ${{ matrix.asset_name }}.gz.sha256
-          asset_content_type: plain/text
+      # - name: Upload asset hash to release
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ github.event.release.upload_url }}
+      #     asset_path: ./${{ matrix.asset_name }}.gz.sha256
+      #     asset_name: ${{ matrix.asset_name }}.gz.sha256
+      #     asset_content_type: plain/text
