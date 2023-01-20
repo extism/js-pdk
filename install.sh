@@ -1,3 +1,5 @@
+set -e
+
 OS=''
 case "$OSTYPE" in
   darwin*)  OS="macos" ;; 
