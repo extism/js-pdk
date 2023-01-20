@@ -9,9 +9,9 @@ esac
 
 ARCH=`uname -m`
 case "$ARCH" in
-  ix86*)    ARCH="x86_64" ;; 
-  arm64*)   ARCH="aarch64" ;;
-  *)        echo "unknown arch: $ARCH" && exit 1 ;;
+  ix86*|x86_64*)    ARCH="x86_64" ;; 
+  arm64*)           ARCH="aarch64" ;;
+  *)                echo "unknown arch: $ARCH" && exit 1 ;;
 esac
 
 
