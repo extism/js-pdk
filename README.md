@@ -48,7 +48,9 @@ For more information try --help
 
 > **Note**: If you are using mac, you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the "compile from source" section below.
 
-Try it on a script file. Name this `script.js`:
+Try it on a script file. Name this `script.js:
+
+> **Note**: You must use [CJS Module syntax](https://nodejs.org/api/modules.html#modules-commonjs-modules) when not using a bundler.
 
 ```javascript
 // script.js
@@ -142,6 +144,8 @@ npm install --save fastest-levenshtein
 ```
 
 Now make some code in `src/index.js`. You can use `import` to load node_modules:
+
+> **Note**: This module uses the ESM Module syntax. The bundler will transform all the code to CJS for us
 
 ```js
 import {distance, closest} from 'fastest-levenshtein'
