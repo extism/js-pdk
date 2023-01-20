@@ -48,7 +48,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - name: linux-arm64
             os: ubuntu-latest
-            path: target/x86_64-unknown-linux-gnu/release/extism-js
+            path: target/aarch64-unknown-linux-gnu/release/extism-js
             asset_name: extism-js-aarch64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: aarch64-unknown-linux-gnu
