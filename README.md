@@ -57,7 +57,7 @@ const VOWELS = [
     'a', 'e', 'i', 'o', 'u',
 ]
 
-export function count_vowels() {
+function count_vowels() {
     let input = Host.inputString()
     let count = 0
     for (let i = 0; i < input.length; i++) {
@@ -68,6 +68,8 @@ export function count_vowels() {
     Host.outputString(JSON.stringify({count}))
     return 0
 }
+
+module.exports = {count_vowels}
 ```
 
 ```bash
