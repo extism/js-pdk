@@ -16,7 +16,7 @@ esac
 
 
 export TAG="v0.3.1"
-curl -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
+curl -L -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
 chmod +x /usr/local/bin/extism-js
