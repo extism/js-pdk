@@ -42,7 +42,7 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
-            path: target/release/extism-js
+            path: target/x86_64-unknown-linux-gnu/release/extism-js
             asset_name: extism-js-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: x86_64-unknown-linux-gnu
@@ -54,7 +54,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
           - name: macos
             os: macos-latest
-            path: target/release/extism-js
+            path: target/x86_64-apple-darwin/release/extism-js
             asset_name: extism-js-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: x86_64-apple-darwin
@@ -111,24 +111,24 @@ jobs:
           name: ${{ matrix.asset_name }}.gz
           path: ${{ matrix.asset_name }}.gz
 
-      - name: Upload assets to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ matrix.asset_name }}.gz
-          asset_name: ${{ matrix.asset_name }}.gz
-          asset_content_type: application/gzip
+      # - name: Upload assets to release
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ github.event.release.upload_url }}
+      #     asset_path: ./${{ matrix.asset_name }}.gz
+      #     asset_name: ${{ matrix.asset_name }}.gz
+      #     asset_content_type: application/gzip
 
-      - name: Generate asset hash
-        run: ${{ matrix.shasum_cmd }} ${{ matrix.asset_name }}.gz | awk '{ print $1 }' > ${{ matrix.asset_name }}.gz.sha256
+      # - name: Generate asset hash
+      #   run: ${{ matrix.shasum_cmd }} ${{ matrix.asset_name }}.gz | awk '{ print $1 }' > ${{ matrix.asset_name }}.gz.sha256
 
-      - name: Upload asset hash to artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.asset_name }}.gz.sha256
-          path: ${{ matrix.asset_name }}.gz.sha256
+      # - name: Upload asset hash to artifacts
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: ${{ matrix.asset_name }}.gz.sha256
+      #     path: ${{ matrix.asset_name }}.gz.sha256
 
       # - name: Upload asset hash to release
       #   uses: actions/upload-release-asset@v1
