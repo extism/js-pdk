@@ -24,32 +24,14 @@ This new Wasm file can be used just like any other Extism plugin.
 
 We now have released binaries. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
 
-> **Note**: Windows is not currently a supported platform.
+> **Note**: Windows is not currently a supported platform, only mac and linux
 
-### Installing on a Mac
-
-Run the script below to install on Mac:
+## Install Script
 
 ```bash
-export TAG=v0.3.0
-curl -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-x86_64-macos-$TAG.gz"
-gunzip extism-js*.gz
-sudo mv extism-js-* /usr/local/bin/extism-js
-chmod +x /usr/local/bin/extism-js
+curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
+sh install.sh
 ```
-
-### Installing on Linux
-
-Run the script below to install on Linux:
-
-```bash
-export TAG=v0.3.0
-curl -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-x86_64-linux-$TAG.gz"
-gunzip extism-js*.gz
-sudo mv extism-js-* /usr/local/bin/extism-js
-chmod +x /usr/local/bin/extism-js
-```
-
 
 Then run command with no args to see the help:
 
