@@ -100,7 +100,7 @@ The easiest way to set this up would be to use esbuild. The following is a quick
 mkdir extism-plugin
 cd extism-plugin
 npm init -y
-npm install --save-dev
+npm install esbuild --save-dev
 mkdir src
 mkdir dist
 ```
