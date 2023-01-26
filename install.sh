@@ -15,7 +15,7 @@ case "$ARCH" in
 esac
 
 
-export TAG="v0.3.1"
+export TAG="v0.3.3"
 curl -L -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
