@@ -8,35 +8,27 @@ use std::io::Read;
 mod globals;
 
 static mut CONTEXT: OnceCell<Context> = OnceCell::new();
-static mut CODE: OnceCell<String> = OnceCell::new();
 
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
     let context = Context::default();
     globals::inject_globals(&context).expect("Failed to initialize globals");
 
-    let mut contents = String::new();
-    io::stdin().read_to_string(&mut contents).unwrap();
+    let mut code = String::new();
+    io::stdin().read_to_string(&mut code).unwrap();
 
-    // we could preload the whole script here
-    //let _ = context.eval_global("script.js", &contents).unwrap();
+    let _ = context
+        .eval_global("script.js", &code)
+        .expect("Could not eval main script");
 
     unsafe {
         CONTEXT.set(context).unwrap();
-        CODE.set(contents).unwrap();
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
-    let code = unsafe { CODE.get().unwrap() };
     let context = unsafe { CONTEXT.get().unwrap() };
-
-    globals::inject_globals(&context).expect("Failed to initialize globals");
-
-    let _ = context
-        .eval_global("script.js", &code)
-        .expect("Could not eval main script");
 
     let export_funcs = export_names(&context).expect("Could not parse exports");
     let func_name = export_funcs
