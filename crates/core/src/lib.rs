@@ -29,8 +29,8 @@ pub extern "C" fn init() {
 
 #[no_mangle]
 pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
-    let code = unsafe { CODE.take().unwrap() };
-    let context = unsafe { CONTEXT.take().unwrap() };
+    let code = unsafe { CODE.get().unwrap() };
+    let context = unsafe { CONTEXT.get().unwrap() };
 
     globals::inject_globals(&context).expect("Failed to initialize globals");
 
