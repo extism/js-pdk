@@ -172,21 +172,27 @@ faster World
 
 ## Compiling the compiler from source
 
-You need the wasi sdk which can be fetched with the makefile:
+### Prerequisites
+Before compiling the compiler, you need to install prerequisites.
 
-```
-make download-wasi-sdk
-```
+1. Install Rust using [rustup](https://rustup.rs)
+2. Install the WASI target platform via `rustup target add --toolchain stable wasm32-wasi`
+3. Install the wasi sdk using the makefile command: `make download-wasi-sdk`
+4. Install [CMake](https://cmake.org/install/) (on macOS with homebrew, `brew install cmake`)
 
-Then run make to compile the core crate (the engine) and the cli:
+
+### Compiling from source
+
+Run make to compile the core crate (the engine) and the cli:
 
 ```
 make
 ```
 
+To test the built compiler (ensure you have Extism installed):
 ```bash
-./target/release/extism-js script.js -o out.wasm
-extism call out.wasm count_vowels --wasi --input="Hello World Test!"
+./target/release/extism-js bundle.js -o out.wasm
+extism call out.wasm count_vowels --wasi --input='Hello World Test!'
 # => "{\"count\":4}"
 ```
 
