@@ -147,6 +147,9 @@ fn add_extism_shim_exports<P: AsRef<Path>>(file: P, contents: Vec<u8>) -> Result
         export_section.entries_mut().push(entry);
     }
 
+    // let import_section = module.import_section_mut().unwrap().entries_mut();
+    // import_section.retain(|i| !i.module().starts_with("wasi_snapshot_preview"));
+
     parity_wasm::serialize_to_file(&file, module)?;
 
     Ok(())
