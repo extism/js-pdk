@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 quickjs-wasm-rs = { git = "https://github.com/Shopify/javy", rev = "5de746fa13d8906f00e8ad11e6a2d1692aa2b23c" }
-extism-pdk = "0.1.0"
+extism-pdk = "0.2.0"
 once_cell = "1.16"
 anyhow = { workspace = true }
 
