@@ -104,9 +104,19 @@ fn build_var_object(context: &Context) -> anyhow::Result<Value> {
         }
     })?;
 
+    let var_get_str = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+        let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+        let data = var::get::<String>(var_name.as_str()?)?;
+        match data {
+            Some(d) => ctx.value_from_str(d.as_str()),
+            None => ctx.null_value(),
+        }
+    })?;
+
     let var_object = context.object_value()?;
     var_object.set_property("set", var_set)?;
-    var_object.set_property("get", var_get)?;
+    var_object.set_property("getBytes", var_get)?;
+    var_object.set_property("getString", var_get_str)?;
 
     Ok(var_object)
 }

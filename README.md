@@ -208,7 +208,8 @@ Implemented so far:
 * Host.inputString
 * Host.outputBytes
 * Host.outputString
-* Var.get
+* Var.getBytes
+* Var.getString
 * Var.set
 * console.log
 * console.error
