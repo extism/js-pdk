@@ -35,3 +35,30 @@ export function i_error_out() {
     throw Error("I am an error")
 }
 
+export function call_http() {
+  let body = JSON.stringify({
+    "model": "gpt-3.5-turbo",
+    "temperature": 0.7,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Please write a haiku about Wasm",
+      }
+    ],
+  })
+  let resp = Http.request(
+    {
+      url: "https://api.openai.com/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Config.get("open_ai_key")}`
+      }
+    },
+    body
+  )
+  Host.outputString(resp.body)
+}
+
+
+
