@@ -68,7 +68,6 @@ function count_vowels() {
         }
     }
     Host.outputString(JSON.stringify({count}))
-    return 0
 }
 
 module.exports = {count_vowels}
@@ -158,7 +157,6 @@ export function get_closest() {
   let input = Host.inputString()
   let result = closest(input, ['slow', 'faster', 'fastest'])
   Host.outputString(result + ' ' + privateFunc())
-  return 0
 }
 ```
 
@@ -211,6 +209,8 @@ Implemented so far:
 * Var.getBytes
 * Var.getString
 * Var.set
+* Config.get
+* Http.request
 * console.log
 * console.error
 * throw Error

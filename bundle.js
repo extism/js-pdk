@@ -16,15 +16,16 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// index.mjs
-var js_pdk_exports = {};
-__export(js_pdk_exports, {
+// script.js
+var script_exports = {};
+__export(script_exports, {
+  call_http: () => call_http,
   count_vowels: () => count_vowels,
   greet: () => greet,
   greet2: () => greet2,
   i_error_out: () => i_error_out
 });
-module.exports = __toCommonJS(js_pdk_exports);
+module.exports = __toCommonJS(script_exports);
 var VOWELS = [
   "a",
   "e",
@@ -59,4 +60,28 @@ function greet2() {
 }
 function i_error_out() {
   throw Error("I am an error");
+}
+function call_http() {
+  let body = JSON.stringify({
+    "model": "gpt-3.5-turbo",
+    "temperature": 0.7,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Please write a haiku about Wasm"
+      }
+    ]
+  });
+  let resp = Http.request(
+    {
+      url: "https://api.openai.com/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Config.get("open_ai_key")}`
+      }
+    },
+    body
+  );
+  Host.outputString(resp.body);
 }
