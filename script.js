@@ -60,5 +60,8 @@ export function call_http() {
   Host.outputString(resp.body)
 }
 
+export function evalcode() {
+  Host.outputString(eval(Host.inputString()).toString())
+}
 
 

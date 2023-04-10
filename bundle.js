@@ -15,18 +15,17 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-// script.js
 var script_exports = {};
 __export(script_exports, {
   call_http: () => call_http,
   count_vowels: () => count_vowels,
+  evalcode: () => evalcode,
   greet: () => greet,
   greet2: () => greet2,
   i_error_out: () => i_error_out
 });
 module.exports = __toCommonJS(script_exports);
-var VOWELS = [
+const VOWELS = [
   "a",
   "e",
   "i",
@@ -84,4 +83,7 @@ function call_http() {
     body
   );
   Host.outputString(resp.body);
+}
+function evalcode() {
+  Host.outputString(eval(Host.inputString()).toString());
 }
