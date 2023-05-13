@@ -1,12 +1,6 @@
 name: CI
 
-# This workflow run tests and build for each push
-
-on:
-  push:
-    branches:
-      - main
-      - 'feature-**'
+on: [push, pull_request]
 
 jobs:
   test:
