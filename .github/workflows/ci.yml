@@ -1,0 +1,31 @@
+name: CI
+
+# This workflow run tests and build for each push
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature-**'
+
+jobs:
+
+  test_phaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update local toolchain
+        run: |
+          rustup update
+          rustup install 1.66.1          
+          rustup default 1.66.1
+          rustup target add wasm32-wasi
+          sh install-wasi-sdk.sh
+
+      - name: Test
+        run: |
+          make
+          ./target/release/extism-js script.js -i plugin.wasm
+
+
