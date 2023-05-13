@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+#set -euo pipefail
 
 if [[ "$(basename $(pwd))" != "js-pdk" ]]; then
     echo "Run this inside in the root of the js-pdk repo" 1>&2

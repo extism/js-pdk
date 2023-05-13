@@ -9,8 +9,7 @@ on:
       - 'feature-**'
 
 jobs:
-
-  test_phaser:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
