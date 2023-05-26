@@ -5,7 +5,14 @@ use extism_pdk::bindings::extism_load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{Context, Value};
 
+static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
+
 pub fn inject_globals(context: &Context) -> anyhow::Result<()> {
+    context.eval_global("prelude.js", "globalThis.module = {}; globalThis.module.exports = {}")?;
+    // need a *global* var for polyfills to work
+    context.eval_global("prelude.js", "global = globalThis")?;
+    context.eval_global("prelude.js", from_utf8(PRELUDE)?)?;
+
     let module = build_module_ojbect(&context)?;
     let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
