@@ -14,7 +14,7 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 wasm-encoder = "0.20.0"
 wasmparser = "0.96.0"
-parity-wasm = { version = "0.45.0", features = ["bulk"] }
+parity-wasm = { version = "^0.45.0", features = ["bulk", "sign_ext"] }
 wizer = "^3.0.0"
 structopt = "0.3"
 binaryen = "0.12.0"
