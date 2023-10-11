@@ -1,5 +1,5 @@
 use extism_pdk::bindings::extism_error_set;
-use extism_pdk::Memory;
+use extism_pdk::*;
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::Context;
 use std::io;
@@ -36,18 +36,8 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
         .expect(format!("Could not find export func at index {func_idx}").as_str());
     let result = context.eval_global("script.js", format!("{}();", func_name).as_str());
 
-    match result {
-        Ok(r) => 0i32,
-        Err(e) => {
-            let err = format!("{:?}", e);
-            let mut mem = Memory::new(err.len());
-            mem.store(err.as_bytes());
-            unsafe {
-                extism_error_set(mem.offset);
-            }
-            -1
-        }
-    }
+    unwrap!(result);
+    0
 }
 
 fn export_names(context: &Context) -> anyhow::Result<Vec<String>> {
