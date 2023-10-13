@@ -9,7 +9,7 @@ license.workspace = true
 
 [dependencies]
 quickjs-wasm-rs = { git = "https://github.com/Shopify/javy", rev = "45ca026" }
-extism-pdk = "0.3.1"
+extism-pdk = { git = "https://github.com/extism/rust-pdk", branch = "extism-env-namespace"} # TODO: use release once available
 once_cell = "1.16"
 anyhow = { workspace = true }
 
