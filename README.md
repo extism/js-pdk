@@ -338,25 +338,3 @@ This new Wasm file can be used just like any other Extism plugin.
 ## Why not use Javy?
 
 Javy, and many other high level language Wasm tools, assume use of the *command pattern*. This is when the Wasm module only exports a main function and communicates with the host through stdin and stdout. With Extism, we have more of a shared library interface. The module exposes multiple entry points through exported functions. Furthermore, Javy has many Javy and Shopify specific things it's doing that we will not need. However, the core idea is the same, and we can possibly contribute by adding support to Javy for non-command-pattern modules. Then separating the Extism PDK specific stuff into another repo.
-
-## What needs to be done?
-
-Implemented so far:
-
-* Host.inputBytes
-* Host.inputString
-* Host.outputBytes
-* Host.outputString
-* Var.getBytes
-* Var.getString
-* Var.set
-* Config.get
-* Http.request
-* console.log
-* console.error
-* throw Error
-
-The above are implemented but need some more validation and resilience built into them. debating whether I should implement the bulk of the code in js or rust. Working on implementing the other pdk methods.
-
-I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
-
