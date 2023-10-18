@@ -184,7 +184,7 @@ extism call out.wasm count_vowels --wasi --input='Hello World Test!'
 
 ## How it works
 
-This works a little differently than other PDKs. You cannot compile JS to Wasm because it doesn't have an appropriate type system to do this. Something like [Assemblyscript](https://www.assemblyscript.org/) is better suited for this. Instead, we have compiled QuickJS to Wasm. The `extism-js` command we have provided here is a little compiler / wrapper that does a series of things for you:
+This works a little differently than other PDKs. You cannot compile JS to Wasm because it doesn't have an appropriate type system to do this. Something like [Assemblyscript](https://github.com/extism/assemblyscript-pdk) is better suited for this. Instead, we have compiled QuickJS to Wasm. The `extism-js` command we have provided here is a little compiler / wrapper that does a series of things for you:
 
 1. It loads an "engine" Wasm program containing the QuickJS runtime
 2. It initializes a QuickJS context
