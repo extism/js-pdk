@@ -8,7 +8,10 @@ use quickjs_wasm_rs::{Context, Value};
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &Context) -> anyhow::Result<()> {
-    context.eval_global("prelude.js", "globalThis.module = {}; globalThis.module.exports = {}")?;
+    context.eval_global(
+        "prelude.js",
+        "globalThis.module = {}; globalThis.module.exports = {}",
+    )?;
     // need a *global* var for polyfills to work
     context.eval_global("prelude.js", "global = globalThis")?;
     context.eval_global("prelude.js", from_utf8(PRELUDE)?)?;
@@ -45,10 +48,18 @@ fn build_console_object(context: &Context) -> anyhow::Result<Value> {
             error!("{}", stmt);
             ctx.undefined_value()
         })?;
+    let console_warn_callback =
+        context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
+            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = stmt.as_str()?;
+            warn!("{}", stmt);
+            ctx.undefined_value()
+        })?;
 
     let console_object = context.object_value()?;
     console_object.set_property("log", console_log_callback)?;
     console_object.set_property("error", console_error_callback)?;
+    console_object.set_property("warn", console_warn_callback)?;
 
     Ok(console_object)
 }
@@ -133,21 +144,24 @@ fn build_var_object(context: &Context) -> anyhow::Result<Value> {
     Ok(var_object)
 }
 
-
 fn build_http_object(context: &Context) -> anyhow::Result<Value> {
     let http_req = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-        let req = args.get(0).ok_or(anyhow!("Expected http request argument"))?;
+        let req = args
+            .get(0)
+            .ok_or(anyhow!("Expected http request argument"))?;
 
         if !req.is_object() {
             anyhow!("First argument should be an http request object");
         }
 
-        let url = req.get_property("url").expect("Http Request should have url property");
+        let url = req
+            .get_property("url")
+            .expect("Http Request should have url property");
 
         let method = req.get_property("method");
         let method_str = match method {
             Ok(m) => m.as_str()?.to_string(),
-            Err(..) => "GET".to_string()
+            Err(..) => "GET".to_string(),
         };
 
         let mut http_req = HttpRequest::new(url.as_str()?).with_method(method_str);
@@ -169,7 +183,6 @@ fn build_http_object(context: &Context) -> anyhow::Result<Value> {
                         http_req.headers.insert(key.to_string(), value.to_string());
                     }
                 }
-
             }
         }
 
@@ -192,7 +205,6 @@ fn build_http_object(context: &Context) -> anyhow::Result<Value> {
         Ok(resp_obj)
     })?;
 
-
     let http_obj = context.object_value()?;
     http_obj.set_property("request", http_req)?;
 
@@ -209,10 +221,9 @@ fn build_config_object(context: &Context) -> anyhow::Result<Value> {
         let key = key.as_str()?;
         match config::get(key) {
             None => ctx.null_value(),
-            Some(v) => ctx.value_from_str(v.as_str())
+            Some(v) => ctx.value_from_str(v.as_str()),
         }
     })?;
-
 
     let config_obj = context.object_value()?;
     config_obj.set_property("get", config_get)?;
