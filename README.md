@@ -1,6 +1,6 @@
 # Extism JavaScript PDK
 
-> **Note**: This is very experimental. If you are interested in helping or following development, join the [#js-pdk](https://discord.gg/ZACPSVz9) room in our discord channel.
+This project contains a tool that can be used to create [Extism Plug-ins](https://extism.org/docs/concepts/plug-in) in JavaScript.
 
 ## Overview
 
@@ -10,9 +10,9 @@ This is essentially a fork of [Javy](https://github.com/Shopify/javy) by Shopify
 
 ## Install the compiler
 
-We now have released binaries. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
+We release the compiler as native binaries you can download and run. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
 
-> **Note**: Windows is not currently a supported platform, only mac and linux
+> **Note**: Windows is not currently a supported platform, only mac and linux. However we can build an exe if you'd like to help test it.
 
 ## Install Script
 
@@ -36,36 +36,177 @@ For more information try --help
 
 > **Note**: If you are using mac, you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the "compile from source" section below.
 
-Try it on a script file. Name this `script.js`:
+## Getting Started
 
-> **Note**: You must use [CJS Module syntax](https://nodejs.org/api/modules.html#modules-commonjs-modules) when not using a bundler.
+The goal of writing an [Extism plug-in](https://extism.org/docs/concepts/plug-in) is to compile your JavaScript code to a Wasm module with exported functions that the host application can invoke.
+The first thing you should understand is creating an export.
+
+### Exports
+
+Let's write a simple program that exports a `greet` function which will take a name as a string and return a greeting string. Paste this into a file `plugin.js`:
 
 ```javascript
-// script.js
-
-const VOWELS = [
-    'a', 'e', 'i', 'o', 'u',
-]
-
-function count_vowels() {
-    let input = Host.inputString()
-    let count = 0
-    for (let i = 0; i < input.length; i++) {
-        if (VOWELS.includes(input[i].toLowerCase())) {
-            count += 1
-        }
-    }
-    Host.outputString(JSON.stringify({count}))
+function greet() {
+    const name = Host.inputString()
+    Host.outputString(`Hello, ${name}`)
 }
 
-module.exports = {count_vowels}
+module.exports = {greet}
+```
+
+Some things to note about this code:
+
+1. We can export functions by name using the normal `module.exports` object. This allows the host to invoke this function. Like a normal js module, functions cannot be seen from the outside without exporting them.
+2. Currently, you must use [CJS Module syntax](https://nodejs.org/api/modules.html#modules-commonjs-modules) when not using a bundler. So the `export` keyword is not directly supported. See the [Using with a Bundler](#using-with-a-bundler) section for more.
+3. In this PDK we code directly to the ABI. We get input from the using using `Host.input*` functions and we return data back with the `Host.output*` functions. 
+
+Let's compile this to Wasm now using the `extism-js` tool:
+
+```bash
+extism-js plugin.js -o plugin.wasm
+```
+
+We can now test `plugin.wasm` using the [Extism CLI](https://github.com/extism/cli)'s `run`
+command:
+
+```bash
+extism call plugin.wasm greet --input="Benjamin" --wasi
+# => Hello, Benjamin!
+```
+
+> **Note**: Currently `wasi` must be provided for all JavaScript plug-ins even if they don't need system access, however we're looking at how to make this optional.
+
+> **Note**: We also have a web-based, plug-in tester called the [Extism Playground](https://playground.extism.org/)
+
+### More Exports: Error Handling
+
+We catch any exceptions thrown and return them as errors to the host. Suppose we want to re-write our greeting module to never greet Benjamins:
+
+```javascript
+function greet() {
+  const name = Host.inputString()
+  if (name === "Benjamin") {
+    throw new Error("Sorry, we don't greet Benjamins!")
+  }
+  Host.outputString(`Hello, ${name}!`)
+}
+
+module.exports = { greet }
+```
+
+Now compile and run:
+
+```bash
+extism-js plugin.js -o plugin.wasm
+extism call plugin.wasm greet --input="Benjamin" --wasi
+# => Error: Uncaught Error: Sorry, we don't greet Benjamins!
+# =>    at greet (script.js:4)
+# =>    at <eval> (script.js)
+echo $? # print last status code
+# => 1
+extism call plugin.wasm greet --input="Zach" --wasi
+# => Hello, Zach!
+echo $?
+# => 0
+```
+
+### JSON
+
+If you want to handle more complex types, the plug-in can input and output bytes with `Host.inputBytes` and `Host.outputBytes` respectively. Those bytes can represent any complex type. A common format to use is JSON:
+
+```
+function sum() {
+  const params = JSON.parse(Host.inputString())
+  Host.outputString(JSON.stringify({ sum: params.a + params.b }))
+}
 ```
 
 ```bash
-extism-js script.js -o count_vowels.wasm
-extism call count_vowels.wasm count_vowels --input="Hello World!" --wasi
-# => {"count":3}                          
+extism call plugin.wasm sum --input='{"a": 20, "b": 21}' --wasi
+# => {"sum":41}
 ```
+
+### Configs
+
+Configs are key-value pairs that can be passed in by the host when creating a
+plug-in. These can be useful to statically configure the plug-in with some data that exists across every function call. Here is a trivial example using `Config.get`:
+
+```javascript
+function greet() {
+  const user = Config.get("user")
+  Host.outputString(`Hello, ${user}!`)
+}
+
+module.exports = { greet }
+```
+
+To test it, the [Extism CLI](https://github.com/extism/cli) has a `--config` option that lets you pass in `key=value` pairs:
+
+
+```bash
+extism call plugin.wasm greet --config user=Benjamin
+# => Hello, Benjamin!
+```
+
+### Variables
+
+Variables are another key-value mechanism but it's a mutable data store that
+will persist across function calls. These variables will persist as long as the
+host has loaded and not freed the plug-in. 
+You can use `Var.getBytes`, `Var.getString`, and `Var.set` to manipulate vars:
+
+```javascript
+function count() {
+  let count = Var.getString("count") || '0'
+  count = parseInt(count, 10)
+  count += 1
+  Var.set("count", count.toString())
+  Host.outputString(count.toString())
+}
+
+module.exports = { count }
+```
+
+### Logging
+
+Write now calling `console.log` emits an `info` log. Please file an issue or PR if you want to expose the raw logging interface:
+
+```javascript
+function logStuff() {
+  console.log('Hello, World!')
+}
+
+module.exports = { logStuff }
+```
+
+Running it, you need to pass a log-level flag:
+
+```
+extism call plugin.wasm logStuff --wasi --log-level=info
+# => 2023/10/17 14:25:00 Hello, World!
+```
+
+### HTTP
+
+HTTP calls can be made using the synchronous API `Http.request`:
+
+```javascript
+function callHttp() {
+  const request = {
+    method: "GET",
+    url: "https://jsonplaceholder.typicode.com/todos/1"
+  }
+  const response = Http.request(request)
+  if (response.status != 200) throw new Error(`Got non 200 response ${response.status}`)
+  Host.outputString(response.body)
+}
+
+module.exports = { callHttp }
+```
+
+### Host Functions
+
+We don't yet support host functions. If you are interested in this please weigh in here: https://github.com/extism/js-pdk/issues/20
 
 ## Using with a bundler
 
@@ -197,25 +338,3 @@ This new Wasm file can be used just like any other Extism plugin.
 ## Why not use Javy?
 
 Javy, and many other high level language Wasm tools, assume use of the *command pattern*. This is when the Wasm module only exports a main function and communicates with the host through stdin and stdout. With Extism, we have more of a shared library interface. The module exposes multiple entry points through exported functions. Furthermore, Javy has many Javy and Shopify specific things it's doing that we will not need. However, the core idea is the same, and we can possibly contribute by adding support to Javy for non-command-pattern modules. Then separating the Extism PDK specific stuff into another repo.
-
-## What needs to be done?
-
-Implemented so far:
-
-* Host.inputBytes
-* Host.inputString
-* Host.outputBytes
-* Host.outputString
-* Var.getBytes
-* Var.getString
-* Var.set
-* Config.get
-* Http.request
-* console.log
-* console.error
-* throw Error
-
-The above are implemented but need some more validation and resilience built into them. debating whether I should implement the bulk of the code in js or rust. Working on implementing the other pdk methods.
-
-I've got the exports to work, but it's a fragile and complicated solution. Will write it up soon, and maybe it can be replaced with something simpler.
-
