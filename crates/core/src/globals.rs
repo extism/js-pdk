@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 use anyhow::anyhow;
-use extism_pdk::bindings::extism_load_input;
+use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{Context, Value};
 
@@ -56,12 +56,12 @@ fn build_module_ojbect(context: &Context) -> anyhow::Result<Value> {
 fn build_host_object(context: &Context) -> anyhow::Result<Value> {
     let host_input_bytes =
         context.wrap_callback(|ctx: &Context, _this: &Value, _args: &[Value]| {
-            let input = unsafe { extism_load_input() };
+            let input = unsafe { load_input() };
             ctx.array_buffer_value(&input)
         })?;
     let host_input_string =
         context.wrap_callback(|ctx: &Context, _this: &Value, _args: &[Value]| {
-            let input = unsafe { extism_load_input() };
+            let input = unsafe { load_input() };
             let string = String::from_utf8(input)?;
             ctx.value_from_str(&string)
         })?;
@@ -126,21 +126,24 @@ fn build_var_object(context: &Context) -> anyhow::Result<Value> {
     Ok(var_object)
 }
 
-
 fn build_http_object(context: &Context) -> anyhow::Result<Value> {
     let http_req = context.wrap_callback(|ctx: &Context, _this: &Value, args: &[Value]| {
-        let req = args.get(0).ok_or(anyhow!("Expected http request argument"))?;
+        let req = args
+            .get(0)
+            .ok_or(anyhow!("Expected http request argument"))?;
 
         if !req.is_object() {
             anyhow!("First argument should be an http request object");
         }
 
-        let url = req.get_property("url").expect("Http Request should have url property");
+        let url = req
+            .get_property("url")
+            .expect("Http Request should have url property");
 
         let method = req.get_property("method");
         let method_str = match method {
             Ok(m) => m.as_str()?.to_string(),
-            Err(..) => "GET".to_string()
+            Err(..) => "GET".to_string(),
         };
 
         let mut http_req = HttpRequest::new(url.as_str()?).with_method(method_str);
@@ -162,7 +165,6 @@ fn build_http_object(context: &Context) -> anyhow::Result<Value> {
                         http_req.headers.insert(key.to_string(), value.to_string());
                     }
                 }
-
             }
         }
 
@@ -185,7 +187,6 @@ fn build_http_object(context: &Context) -> anyhow::Result<Value> {
         Ok(resp_obj)
     })?;
 
-
     let http_obj = context.object_value()?;
     http_obj.set_property("request", http_req)?;
 
@@ -201,11 +202,10 @@ fn build_config_object(context: &Context) -> anyhow::Result<Value> {
 
         let key = key.as_str()?;
         match config::get(key) {
-            None => ctx.null_value(),
-            Some(v) => ctx.value_from_str(v.as_str())
+            _ => ctx.null_value(),
+            Ok(Some(v)) => ctx.value_from_str(v.as_str()),
         }
     })?;
-
 
     let config_obj = context.object_value()?;
     config_obj.set_property("get", config_get)?;
