@@ -1,4 +1,4 @@
-use extism_pdk::bindings::extism_error_set;
+use extism_pdk::extism::error_set;
 use extism_pdk::*;
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::Context;
