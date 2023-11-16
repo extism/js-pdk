@@ -8,20 +8,14 @@ use quickjs_wasm_rs::{Context, Value};
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &Context) -> anyhow::Result<()> {
-    context.eval_global(
-        "prelude.js",
-        "globalThis.module = {}; globalThis.module.exports = {}",
-    )?;
-    // need a *global* var for polyfills to work
-    context.eval_global("prelude.js", "global = globalThis")?;
-    context.eval_global("prelude.js", from_utf8(PRELUDE)?)?;
-
     let module = build_module_ojbect(&context)?;
     let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
     let var = build_var_object(&context)?;
     let http = build_http_object(&context)?;
     let cfg = build_config_object(&context)?;
+    let decoder = build_decoder(&context)?;
+    let encoder = build_encoder(&context)?;
 
     let global = context.global_object()?;
     global.set_property("console", console)?;
@@ -30,6 +24,16 @@ pub fn inject_globals(context: &Context) -> anyhow::Result<()> {
     global.set_property("Var", var)?;
     global.set_property("Http", http)?;
     global.set_property("Config", cfg)?;
+    global.set_property("__decodeUtf8BufferToString", decoder)?;
+    global.set_property("__encodeUtf8BufferToString", encoder)?;
+
+    context.eval_global(
+        "prelude.js",
+        "globalThis.module = {}; globalThis.module.exports = {}",
+    )?;
+    // need a *global* var for polyfills to work
+    context.eval_global("prelude.js", "global = globalThis")?;
+    context.eval_global("prelude.js", from_utf8(PRELUDE)?)?;
 
     Ok(())
 }
@@ -229,4 +233,63 @@ fn build_config_object(context: &Context) -> anyhow::Result<Value> {
     config_obj.set_property("get", config_get)?;
 
     Ok(config_obj)
+}
+
+fn build_decoder(context: &Context) -> anyhow::Result<Value> {
+    Ok(context.wrap_callback(decode_utf8_buffer_to_js_string())?)
+}
+
+fn build_encoder(context: &Context) -> anyhow::Result<Value> {
+    Ok(context.wrap_callback(encode_js_string_to_utf8_buffer())?)
+}
+
+fn decode_utf8_buffer_to_js_string(
+) -> impl FnMut(&Context, Value, &[Value]) -> anyhow::Result<JSValue> {
+    move |_ctx: &Context, _this: Value, args: &[Value]| {
+        if args.len() != 5 {
+            return Err(anyhow!("Expecting 5 arguments, received {}", args.len()));
+        }
+
+        let buffer: Vec<u8> = args[0].try_into()?;
+        let byte_offset: usize = args[1].try_into()?;
+        let byte_length: usize = args[2].try_into()?;
+        let fatal: bool = args[3].try_into()?;
+        let ignore_bom: bool = args[4].try_into()?;
+
+        let mut view = buffer
+            .get(byte_offset..(byte_offset + byte_length))
+            .ok_or_else(|| {
+                anyhow!("Provided offset and length is not valid for provided buffer")
+            })?;
+
+        if !ignore_bom {
+            view = match view {
+                // [0xEF, 0xBB, 0xBF] is the UTF-8 BOM which we want to strip
+                [0xEF, 0xBB, 0xBF, rest @ ..] => rest,
+                _ => view,
+            };
+        }
+
+        let str =
+            if fatal {
+                Cow::from(from_utf8(view).map_err(|_| {
+                    JSError::Type("The encoded data was not valid utf-8".to_string())
+                })?)
+            } else {
+                String::from_utf8_lossy(view)
+            };
+        Ok(str.to_string().into())
+    }
+}
+
+fn encode_js_string_to_utf8_buffer(
+) -> impl FnMut(&Context, Value, &[Value]) -> anyhow::Result<JSValue> {
+    move |_ctx: &Context, _this: Value, args: &[Value]| {
+        if args.len() != 1 {
+            return Err(anyhow!("Expecting 1 argument, got {}", args.len()));
+        }
+
+        let js_string: String = args[0].try_into()?;
+        Ok(js_string.into_bytes().into())
+    }
 }
