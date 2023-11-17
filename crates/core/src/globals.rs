@@ -25,7 +25,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("Http", http)?;
     global.set_property("Config", cfg)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
-    global.set_property("__encodeUtf8BufferToString", encoder)?;
+    global.set_property("__encodeStringToUtf8Buffer", encoder)?;
 
     context.eval_global(
         "prelude.js",
