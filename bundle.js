@@ -19,6 +19,7 @@ var script_exports = {};
 __export(script_exports, {
   call_http: () => call_http,
   count_vowels: () => count_vowels,
+  evalcode: () => evalcode,
   greet: () => greet,
   greet2: () => greet2,
   i_error_out: () => i_error_out
@@ -82,4 +83,7 @@ function call_http() {
     body
   );
   Host.outputString(resp.body);
+}
+function evalcode() {
+  Host.outputString(eval(Host.inputString()).toString());
 }

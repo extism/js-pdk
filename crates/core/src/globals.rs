@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, str::from_utf8};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
@@ -39,7 +39,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
 }
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let console_log_callback = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             info!("{}", stmt);
@@ -47,7 +47,7 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
         },
     )?;
     let console_error_callback = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             error!("{}", stmt);
@@ -55,7 +55,7 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
         },
     )?;
     let console_warn_callback = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             warn!("{}", stmt);
@@ -80,27 +80,27 @@ fn build_module_ojbect(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
 fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let host_input_bytes = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
             let input = unsafe { load_input() };
             Ok(JSValue::ArrayBuffer(input))
         },
     )?;
     let host_input_string = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
             let input = unsafe { load_input() };
             let string = String::from_utf8(input)?;
             Ok(JSValue::String(string))
         },
     )?;
     let host_output_bytes = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let output = args.get(0).unwrap();
             extism_pdk::output(output.as_bytes()?)?;
             Ok(JSValue::Bool(true))
         },
     )?;
     let host_output_string = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let output = args.get(0).unwrap();
             extism_pdk::output(output.as_str()?)?;
             Ok(JSValue::Bool(true))
@@ -118,7 +118,7 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
 fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let var_set = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
             let data = args.get(1).ok_or(anyhow!("Expected data argument"))?;
 
@@ -132,7 +132,7 @@ fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
         },
     )?;
     let var_get = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
             let data = var::get::<Vec<u8>>(var_name.as_str()?)?;
             match data {
@@ -143,7 +143,7 @@ fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
 
     let var_get_str = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
             let data = var::get::<String>(var_name.as_str()?)?;
             match data {
@@ -169,7 +169,7 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
                 .ok_or(anyhow!("Expected http request argument"))?;
 
             if !req.is_object() {
-                anyhow!("First argument should be an http request object");
+                bail!("First argument should be an http request object");
             }
 
             let url = req
@@ -187,7 +187,7 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             let headers = req.get_property("headers");
             if let Ok(headers) = headers {
                 if !headers.is_object() {
-                    anyhow!("Expected headers to be an object");
+                    bail!("Expected headers to be an object");
                 }
                 let mut header_values = headers.properties()?;
                 loop {
@@ -235,16 +235,16 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
 fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let config_get = context.wrap_callback(
-        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let key = args.get(0).ok_or(anyhow!("Expected key argument"))?;
             if !key.is_str() {
-                anyhow!("Expected key to be a string");
+                bail!("Expected key to be a string");
             }
 
             let key = key.as_str()?;
             match config::get(key) {
-                _ => Ok(JSValue::Null),
                 Ok(Some(v)) => Ok(JSValue::String(v)),
+                _ => Ok(JSValue::Null),
             }
         },
     )?;
