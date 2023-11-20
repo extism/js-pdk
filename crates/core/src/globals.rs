@@ -28,12 +28,12 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
 
     context.eval_global(
-        "prelude.js",
+        "script.js",
         "globalThis.module = {}; globalThis.module.exports = {}",
     )?;
     // need a *global* var for polyfills to work
-    context.eval_global("prelude.js", "global = globalThis")?;
-    context.eval_global("prelude.js", from_utf8(PRELUDE)?)?;
+    context.eval_global("script.js", "global = globalThis")?;
+    context.eval_global("script.js", from_utf8(PRELUDE)?)?;
 
     Ok(())
 }

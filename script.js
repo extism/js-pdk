@@ -1,5 +1,3 @@
-import React from 'react';
-
 const VOWELS = [
   'a', 'e', 'i', 'o', 'u',
 ]
@@ -61,10 +59,4 @@ export function call_http() {
   )
   Host.outputString(resp.body)
 }
-
-export function evalcode() {
-  console.log(React.toString())
-  Host.outputString(eval(Host.inputString()).toString())
-}
-
 
