@@ -25,7 +25,4 @@ jobs:
       - name: Test
         run: |
           make
-          ./target/release/extism-js bundle.js -o plugin.wasm
-          extism call plugin.wasm count_vowels --input="Hello" --wasi
-
-
+          make test

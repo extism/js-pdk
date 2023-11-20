@@ -6,7 +6,7 @@ This project contains a tool that can be used to create [Extism Plug-ins](https:
 
 This PDK uses [QuickJS](https://bellard.org/quickjs/) and [wizer](https://github.com/bytecodealliance/wizer) to run javascript as an Extism Plug-in.
 
-This is essentially a fork of [Javy](https://github.com/Shopify/javy) by Shopify. We may wish to collaborate and upstream some things to them. For the time being I built this up from scratch using some of their crates, namely quickjs-wasm-rs.
+This is essentially a fork of [Javy](https://github.com/bytecodealliance/javy) by Shopify. We may wish to collaborate and upstream some things to them. For the time being I built this up from scratch using some of their crates, namely quickjs-wasm-rs.
 
 ## Install the compiler
 
@@ -114,7 +114,7 @@ echo $?
 
 If you want to handle more complex types, the plug-in can input and output bytes with `Host.inputBytes` and `Host.outputBytes` respectively. Those bytes can represent any complex type. A common format to use is JSON:
 
-```
+```javascript
 function sum() {
   const params = JSON.parse(Host.inputString())
   Host.outputString(JSON.stringify({ sum: params.a + params.b }))
@@ -233,18 +233,22 @@ mkdir src
 mkdir dist
 ```
 
-
 Add `esbuild.js`:
 
 ```js
 const esbuild = require('esbuild');
+// include this if you need some node support:
+// npm i @esbuild-plugins/node-modules-polyfill --save-dev
+// const { NodeModulesPolyfillPlugin } = require('@esbuild-plugins/node-modules-polyfill')
 
 esbuild
     .build({
+        // supports other types like js or ts
         entryPoints: ['src/index.js'],
         outdir: 'dist',
         bundle: true,
         sourcemap: true,
+        //plugins: [NodeModulesPolyfillPlugin()], // include this if you need some node support 
         minify: false, // might want to use true for production build
         format: 'cjs', // needs to be CJS for now
         target: ['es2020'] // don't go over es2020 because quickjs doesn't support it
@@ -294,7 +298,7 @@ export function get_closest() {
 npm run build
 # You can now call from the extism cli or a host SDK
 extism call dist/plugin.wasm get_closest --input="fest" --wasi
-faster World
+# => faster World
 ```
 
 ## Compiling the compiler from source

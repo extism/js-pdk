@@ -1,0 +1,16 @@
+{
+  "name": "bundled-plugin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "node esbuild.js && ../../target/release/extism-js dist/index.js -o ../bundled.wasm"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "esbuild": "^0.19.6",
+    "typescript": "^5.3.2"
+  }
+}
