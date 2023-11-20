@@ -1,0 +1,16 @@
+{
+  "name": "js-runtime-prelude",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node esbuild.js"
+  },
+  "author": "",
+  "license": "BSD-Clause-3",
+  "devDependencies": {
+    "core-js": "^3.30.2",
+    "esbuild": "^0.17.19",
+    "urlpattern-polyfill": "^8.0.2"
+  }
+}

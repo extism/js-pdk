@@ -12,6 +12,10 @@ cli: core
 
 core:
 		cd crates/core \
+			  && cd src/prelude \
+				&& npm install \
+				&& npm run build \
+				&& cd ../.. \
 				&& QUICKJS_WASM_SYS_WASI_SDK_PATH="$(CURDIR)/wasi-sdk/" cargo build --release --target=wasm32-wasi \
 				&& cd -
 

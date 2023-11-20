@@ -13,4 +13,3 @@ license = "BSD-Clause-3"
 
 [workspace.dependencies]
 anyhow = "1.0.68"
-
