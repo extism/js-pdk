@@ -40,3 +40,11 @@ clean-cargo:
 
 clean-wasi-sdk:
 		rm -r wasi-sdk 2> /dev/null || true
+
+test: compile-examples
+		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
+		@extism call examples/bundled.wasm greet --wasi --input="Benjamin"
+
+compile-examples:
+		./target/release/extism-js examples/simple_js/script.js -o examples/simple_js.wasm
+		cd examples/bundled && npm install && npm run build && cd ../..
