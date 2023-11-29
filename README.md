@@ -1,4 +1,6 @@
 # Extism JavaScript PDK
+![GitHub License](https://img.shields.io/github/license/extism/extism)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/extism/extism)
 
 This project contains a tool that can be used to create [Extism Plug-ins](https://extism.org/docs/concepts/plug-in) in JavaScript.
 
