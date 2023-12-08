@@ -171,7 +171,7 @@ module.exports = { count }
 
 ### Logging
 
-Write now calling `console.log` emits an `info` log. Please file an issue or PR if you want to expose the raw logging interface:
+At the current time, calling `console.log` emits an `info` log. Please file an issue or PR if you want to expose the raw logging interface:
 
 ```javascript
 function logStuff() {
