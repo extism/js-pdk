@@ -36,58 +36,6 @@ struct Interface {
     pub functions: Vec<Signature>,
 }
 
-fn parse_interface(i: &Box<TsInterfaceDecl>) -> Option<Interface> {
-    let mut signatures = Vec::new();
-    let name = i.id.sym.as_str();
-    match name {
-        "user" => {
-            for sig in &i.body.body {
-                match sig {
-                    TsTypeElement::TsMethodSignature(t) => {
-                        let name = t.key.as_ident().unwrap().sym.to_string();
-                        let params = t
-                            .params
-                            .iter()
-                            .map(|p| {
-                                let vn = p.as_ident().unwrap().id.sym.as_str();
-                                let typ = p.as_ident().unwrap().type_ann.clone();
-                                let typ = typ.unwrap();
-                                let typ = &typ
-                                    .type_ann
-                                    .as_ts_type_ref()
-                                    .unwrap()
-                                    .type_name
-                                    .as_ident()
-                                    .unwrap()
-                                    .sym;
-                                Param {
-                                    name: vn.to_string(),
-                                    ptype: typ.to_string(),
-                                }
-                            })
-                            .collect::<Vec<Param>>();
-                        let results = Vec::new();
-                        let signature = Signature {
-                            name,
-                            params,
-                            results,
-                        };
-                        signatures.push(signature);
-                    }
-                    _ => {
-                        println!("Warning: don't know what to do with sig {:#?}", sig);
-                    }
-                }
-            }
-            Some(Interface {
-                name: name.into(),
-                functions: signatures,
-            })
-        }
-        _ => None,
-    }
-}
-
 fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Option<Interface> {
     let mut signatures = Vec::new();
     for block in &tsmod.body {
@@ -138,24 +86,6 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Option<Interface> {
     })
 }
 
-fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Option<Interface> {
-    for block in &tsmod.body {
-        if let Some(block) = block.clone().ts_module_block() {
-            for inter in block.body {
-                if let ModuleItem::Stmt(Stmt::Decl(decl)) = inter {
-                    let i = decl.as_ts_interface().unwrap();
-                    return parse_interface(i);
-                } else {
-                    log::warn!("Not a module decl");
-                }
-            }
-        } else {
-            log::warn!("Not a Module Block");
-        }
-    }
-    None
-}
-
 fn parse_module(module: Module) -> Option<Vec<Interface>> {
     let mut interfaces = Vec::new();
     for statement in &module.body {
@@ -166,23 +96,16 @@ fn parse_module(module: Module) -> Option<Vec<Interface>> {
                 None
             };
 
-            match name {
-                Some("extism:host") => {
-                    if let Some(int) = parse_imports(submod) {
-                        interfaces.push(int);
-                    }
+            if let Some("main") = name {
+                if let Some(int) = parse_module_decl(submod) {
+                    interfaces.push(int);
                 }
-                Some("main") => {
-                    if let Some(int) = parse_module_decl(submod) {
-                        interfaces.push(int);
-                    }
-                }
-                _ => {
-                    log::warn!("Could not parse module with name {:#?}", name);
-                }
-            };
+            } else {
+                log::warn!("Could not parse module with name {:#?}", name);
+            }
         }
     }
+
     Some(interfaces)
 }
 

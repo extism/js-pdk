@@ -1,10 +1,10 @@
 {
-  "name": "bundled-plugin",
+  "Aname": "bundled-plugin",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "build": "node esbuild.js && ../../target/release/extism-js dist/index.js -o ../bundled.wasm"
+    "build": "node esbuild.js && ../../target/release/extism-js dist/index.js -i src/index.d.ts -o ../bundled.wasm"
   },
   "keywords": [],
   "author": "",
