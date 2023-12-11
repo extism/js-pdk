@@ -186,11 +186,7 @@ fn parse_module(module: Module) -> Option<Vec<Interface>> {
     Some(interfaces)
 }
 
-pub fn create_shims(
-    interface_path: PathBuf,
-    export_path: PathBuf,
-    import_path: PathBuf,
-) -> Result<()> {
+pub fn create_shims(interface_path: PathBuf, export_path: PathBuf) -> Result<()> {
     let cm: Lrc<SourceMap> = Default::default();
     let fm = cm.load_file(&interface_path)?;
     let lexer = Lexer::new(
@@ -203,22 +199,18 @@ pub fn create_shims(
     let mut parser = Parser::new_from(lexer);
 
     for e in parser.take_errors() {
-        println!("Err: {:#?}", e);
+        log::warn!("Typescript Parse Error: {:#?}", e);
     }
 
-    let module = parser
-        .parse_module()
-        .map_err(|e| {
-            // Unrecoverable fatal error occurred
-            println!("Err2: {:#?}", e);
-        })
-        .expect("failed to parser module");
+    let module = parser.parse_module().expect("failed to parser module");
 
     let interfaces = parse_module(module).unwrap();
 
     let mut wasm_mod = WasmModule::new();
-    //let imports = interfaces.iter().find(|i| i.name == "user").unwrap();
-    let exports = interfaces.iter().find(|i| i.name == "main").unwrap();
+    let exports = interfaces
+        .iter()
+        .find(|i| i.name == "main")
+        .expect("You need to declare a 'main' module with your exports.");
 
     // Note: the order in which you set the sections
     // with `wasm_mod.section()` is important
@@ -242,6 +234,7 @@ pub fn create_shims(
 
     // Encode the function section.
     let mut functions = FunctionSection::new();
+
     // we will have 1 thunk function per export
     let type_index = 1; // these are exports () -> i32
     for _ in exports.functions.iter() {
@@ -284,68 +277,6 @@ pub fn create_shims(
     let wasm_bytes = wasm_mod.finish();
     let mut file = File::create(export_path)?;
     file.write_all(wasm_bytes.as_ref())?;
-
-    // imports now
-
-    // let mut wasm_mod = WasmModule::new();
-
-    // // Encode the type section.
-    // let mut types = TypeSection::new();
-    // let params = vec![ValType::I32];
-    // let results = vec![ValType::I32];
-    // types.function(params, results);
-    // wasm_mod.section(&types);
-
-    // // Encode the import section
-    // let mut import_sec = ImportSection::new();
-    // for i in imports.functions.iter() {
-    //     import_sec.import(
-    //         "coremod",
-    //         i.name.as_str(),
-    //         wasm_encoder::EntityType::Function(0),
-    //     );
-    //     func_index += 1;
-    // }
-    // wasm_mod.section(&import_sec);
-
-    // // Encode the function section.
-    // let mut functions = FunctionSection::new();
-    // functions.function(0);
-    // wasm_mod.section(&functions);
-
-    // // encode tables pointing to imports
-    // let mut tables = TableSection::new();
-    // let table_type = TableType {
-    //     element_type: wasm_encoder::RefType {
-    //         nullable: true,
-    //         heap_type: HeapType::Func,
-    //     },
-    //     minimum: 2,
-    //     maximum: None,
-    // };
-    // tables.table(table_type);
-    // wasm_mod.section(&tables);
-
-    // // let mut elements = ElementSection::new();
-    // // let func_elems = Elements::Functions(&[0]);
-    // // elements.active(None, 0, func_elems);
-
-    // // Encode the code section.
-    // let mut codes = CodeSection::new();
-    // let locals = vec![];
-    // let mut f = Function::new(locals);
-    // // we will essentially call the eval function
-    // // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
-    // f.instruction(&Instruction::LocalGet(0));
-    // f.instruction(&Instruction::I32Const(0));
-    // f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
-    // f.instruction(&Instruction::End);
-    // codes.function(&f);
-    // wasm_mod.section(&codes);
-
-    // let wasm_bytes = wasm_mod.finish();
-    // let mut file = File::create(import_path)?;
-    // file.write_all(wasm_bytes.as_ref())?;
 
     Ok(())
 }
