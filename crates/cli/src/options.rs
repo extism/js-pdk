@@ -9,4 +9,7 @@ pub struct Options {
 
     #[structopt(short = "o", parse(from_os_str), default_value = "index.wasm")]
     pub output: PathBuf,
+
+    #[structopt(short = "i", parse(from_os_str), default_value = "interface.d.ts")]
+    pub interface: PathBuf,
 }

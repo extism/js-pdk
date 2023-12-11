@@ -6,6 +6,10 @@ use std::io::Read;
 
 mod globals;
 
+// extern "C" {
+//     fn __invokeHostFunc(a: i32) -> i32;
+// }
+
 static mut CONTEXT: OnceCell<JSContextRef> = OnceCell::new();
 
 #[export_name = "wizer.initialize"]
@@ -24,6 +28,11 @@ pub extern "C" fn init() {
         CONTEXT.set(context).unwrap();
     }
 }
+
+// #[no_mangle]
+// pub unsafe extern "C" fn __invokeHost(func_idx: i32) -> i32 {
+//     __invokeHostFunc(func_idx)
+// }
 
 #[no_mangle]
 pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
