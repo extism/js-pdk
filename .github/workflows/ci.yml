@@ -25,8 +25,8 @@ jobs:
           # get just wasm-merge and wasm-opt
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz > binaryen.tar.gz
           tar xvzf binaryen.tar.gz
-          sudo cp binaryen/bin/wasm-merge /usr/local/bin
-          sudo cp binaryen/bin/wasm-opt /usr/local/bin
+          sudo cp binaryen-version_116/bin/wasm-merge /usr/local/bin
+          sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin
 
       - name: Test
         env:
