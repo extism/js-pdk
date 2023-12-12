@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut input_file = fs::File::open(&opts.input)?;
+    let mut input_file = fs::File::open(&opts.input_js)?;
     let mut contents: Vec<u8> = vec![];
     input_file.read_to_end(&mut contents)?;
 
@@ -41,7 +41,7 @@ fn main() -> Result<()> {
     {
         env::set_var("EXTISM_WIZEN", "1");
         let mut command = Command::new(self_cmd)
-            .arg(&opts.input)
+            .arg(&opts.input_js)
             .arg("-o")
             .arg(&core_path)
             .stdin(Stdio::piped())
@@ -57,7 +57,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let interface_path = PathBuf::from(&opts.interface);
+    let interface_path = PathBuf::from(&opts.interface_file);
     create_shims(&interface_path, &export_shim_path)?;
 
     let mut command = Command::new("wasm-merge")

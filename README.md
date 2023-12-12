@@ -28,10 +28,11 @@ Then run command with no args to see the help:
 ```
 extism-js
 error: The following required arguments were not provided:
-    <input>
+    <input-js>
+    -i <interface-file>
 
 USAGE:
-    extism-js <input> -o <output>
+    extism-js <input-js> -i <interface-file> -o <output>
 
 For more information try --help
 ```
@@ -62,10 +63,21 @@ Some things to note about this code:
 2. Currently, you must use [CJS Module syntax](https://nodejs.org/api/modules.html#modules-commonjs-modules) when not using a bundler. So the `export` keyword is not directly supported. See the [Using with a Bundler](#using-with-a-bundler) section for more.
 3. In this PDK we code directly to the ABI. We get input from the using using `Host.input*` functions and we return data back with the `Host.output*` functions. 
 
+
+We must also describe the Wasm interface for our plug-in. We do this with a typescript module DTS file.
+Here is our `plugin.d.ts` file:
+
+```typescript
+declare module 'main' {
+  // Extism exports take no params and return an I32
+  export function greet(): I32;
+}
+```
+
 Let's compile this to Wasm now using the `extism-js` tool:
 
 ```bash
-extism-js plugin.js -o plugin.wasm
+extism-js plugin.js -i plugin.d.ts -o plugin.wasm
 ```
 
 We can now test `plugin.wasm` using the [Extism CLI](https://github.com/extism/cli)'s `run`
@@ -99,7 +111,7 @@ module.exports = { greet }
 Now compile and run:
 
 ```bash
-extism-js plugin.js -o plugin.wasm
+extism-js plugin.js -i plugin.d.ts -o plugin.wasm
 extism call plugin.wasm greet --input="Benjamin" --wasi
 # => Error: Uncaught Error: Sorry, we don't greet Benjamins!
 # =>    at greet (script.js:4)
@@ -265,7 +277,7 @@ Add a `build` script to your `package.json`:
   // ...
   "scripts": {
     // ...
-    "build": "node esbuild.js && extism-js dist/index.js -o dist/plugin.wasm"
+    "build": "node esbuild.js && extism-js dist/index.js -i src/index.d.ts -o dist/plugin.wasm"
   },
   // ...
 }
@@ -324,7 +336,7 @@ make
 
 To test the built compiler (ensure you have Extism installed):
 ```bash
-./target/release/extism-js bundle.js -o out.wasm
+./target/release/extism-js bundle.js -i bundle.d.ts -o out.wasm
 extism call out.wasm count_vowels --wasi --input='Hello World Test!'
 # => "{\"count\":4}"
 ```

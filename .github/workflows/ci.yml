@@ -33,11 +33,4 @@ jobs:
           QUICKJS_WASM_SYS_WASI_SDK_PATH: "${{ github.workspace }}/wasi-sdk"
         run: |
           make
-          echo "wasm-opt: "
-          echo $(which wasm-opt)
-          echo "wasm-merge: "
-          echo $(which wasm-merge)
-          ls -lah ./target/release/
-          ls -lah examples/simple_js
-          ls -lah examples/
           make test

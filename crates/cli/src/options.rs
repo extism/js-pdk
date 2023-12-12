@@ -5,11 +5,11 @@ use structopt::StructOpt;
 #[structopt(name = "extism-js", about = "Extism JavaScript PDK Plugin Compiler")]
 pub struct Options {
     #[structopt(parse(from_os_str))]
-    pub input: PathBuf,
+    pub input_js: PathBuf,
+
+    #[structopt(short = "i", parse(from_os_str))]
+    pub interface_file: PathBuf,
 
     #[structopt(short = "o", parse(from_os_str), default_value = "index.wasm")]
     pub output: PathBuf,
-
-    #[structopt(short = "i", parse(from_os_str), default_value = "interface.d.ts")]
-    pub interface: PathBuf,
 }
