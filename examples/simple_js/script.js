@@ -6,12 +6,9 @@
 function callHttp() {
   const request = {
     method: "GET",
-    url: "https://jsonplaceholder.typicode.com/todos/1",
-    headers: {
-      "Accept": "application/json"
-    }
+    url: "https://jsonplaceholder.typicode.com/todos/1"
   }
-  const response = Http.request(request, "")
+  const response = Http.request(request)
   if (response.status != 200) throw new Error(`Got non 200 response ${response.status}`)
   Host.outputString(response.body)
 }
