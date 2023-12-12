@@ -7,7 +7,7 @@ pub struct Options {
     #[structopt(parse(from_os_str))]
     pub input_js: PathBuf,
 
-    #[structopt(short = "i", parse(from_os_str))]
+    #[structopt(short = "i", parse(from_os_str), default_value = "index.d.ts")]
     pub interface_file: PathBuf,
 
     #[structopt(short = "o", parse(from_os_str), default_value = "index.wasm")]

@@ -49,6 +49,10 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                             .function
                             .params
                             .iter()
+                            .map(|p| {
+                                dbg!(p);
+                                p
+                            })
                             .map(|p| Param {
                                 name: String::from("c"),
                                 ptype: String::from("I32"),
@@ -187,6 +191,12 @@ fn generate_export_wasm_shim(exports: &Interface, export_path: &PathBuf) -> Resu
 
 pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<()> {
     let cm: Lrc<SourceMap> = Default::default();
+    if !interface_path.exists() {
+        bail!(
+            "Could not find interface file {}. Set to a valid d.ts file with the -i flag",
+            &interface_path.to_str().unwrap()
+        );
+    }
     let fm = cm.load_file(&interface_path)?;
     let lexer = Lexer::new(
         Syntax::Typescript(Default::default()),

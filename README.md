@@ -29,7 +29,6 @@ Then run command with no args to see the help:
 extism-js
 error: The following required arguments were not provided:
     <input-js>
-    -i <interface-file>
 
 USAGE:
     extism-js <input-js> -i <interface-file> -o <output>
