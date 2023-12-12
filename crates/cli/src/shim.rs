@@ -1,14 +1,14 @@
 extern crate swc_common;
 extern crate swc_ecma_parser;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
 use swc_common::sync::Lrc;
 use swc_common::SourceMap;
-use swc_ecma_ast::{Decl, Module, ModuleDecl, Stmt, TsInterfaceDecl, TsModuleDecl};
-use swc_ecma_ast::{ModuleItem, TsTypeElement};
+use swc_ecma_ast::ModuleItem;
+use swc_ecma_ast::{Decl, Module, ModuleDecl, Stmt, TsModuleDecl};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 
 use wasm_encoder::{
@@ -36,8 +36,9 @@ struct Interface {
     pub functions: Vec<Signature>,
 }
 
-fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Option<Interface> {
+fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
     let mut signatures = Vec::new();
+
     for block in &tsmod.body {
         if let Some(block) = block.as_ts_module_block() {
             for decl in &block.body {
@@ -74,19 +75,19 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Option<Interface> {
                         signatures.push(signature);
                     }
                 } else {
-                    log::warn!("Don't know what to do with non export on main module");
+                    bail!("Don't know what to do with non export on main module");
                 }
             }
         }
     }
 
-    Some(Interface {
+    Ok(Interface {
         name: "main".to_string(),
         functions: signatures,
     })
 }
 
-fn parse_module(module: Module) -> Option<Vec<Interface>> {
+fn parse_module(module: Module) -> Result<Vec<Interface>> {
     let mut interfaces = Vec::new();
     for statement in &module.body {
         if let ModuleItem::Stmt(Stmt::Decl(Decl::TsModule(submod))) = statement {
@@ -97,19 +98,17 @@ fn parse_module(module: Module) -> Option<Vec<Interface>> {
             };
 
             if let Some("main") = name {
-                if let Some(int) = parse_module_decl(submod) {
-                    interfaces.push(int);
-                }
+                interfaces.push(parse_module_decl(submod)?);
             } else {
-                log::warn!("Could not parse module with name {:#?}", name);
+                bail!("Could not parse module with name {:#?}", name);
             }
         }
     }
 
-    Some(interfaces)
+    Ok(interfaces)
 }
 
-pub fn create_shims(interface_path: PathBuf, export_path: PathBuf) -> Result<()> {
+pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<()> {
     let cm: Lrc<SourceMap> = Default::default();
     let fm = cm.load_file(&interface_path)?;
     let lexer = Lexer::new(
@@ -121,13 +120,16 @@ pub fn create_shims(interface_path: PathBuf, export_path: PathBuf) -> Result<()>
 
     let mut parser = Parser::new_from(lexer);
 
-    for e in parser.take_errors() {
-        log::warn!("Typescript Parse Error: {:#?}", e);
+    let parse_errs = parser.take_errors();
+    if !parse_errs.is_empty() {
+        for e in parse_errs {
+            log::warn!("{:#?}", e);
+        }
+        bail!("Failed to parse typescript interface file.");
     }
 
     let module = parser.parse_module().expect("failed to parser module");
-
-    let interfaces = parse_module(module).unwrap();
+    let interfaces = parse_module(module)?;
 
     let mut wasm_mod = WasmModule::new();
     let exports = interfaces
