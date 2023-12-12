@@ -45,19 +45,7 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                 if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(e)) = decl {
                     if let Some(fndecl) = e.decl.as_fn_decl() {
                         let name = fndecl.ident.sym.as_str().to_string();
-                        let params = fndecl
-                            .function
-                            .params
-                            .iter()
-                            .map(|p| {
-                                dbg!(p);
-                                p
-                            })
-                            .map(|p| Param {
-                                name: String::from("c"),
-                                ptype: String::from("I32"),
-                            })
-                            .collect::<Vec<Param>>();
+                        let params = vec![]; // TODO ignoring params for now
                         let return_type = &fndecl
                             .function
                             .clone()
@@ -76,11 +64,24 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                             name: "result".to_string(),
                             ptype: return_type.to_string(),
                         }];
+
+                        if !params.is_empty() {
+                            bail!("An Extism export should take no params and return I32")
+                        }
+                        if results.len() != 1 {
+                            bail!("An Extism export should return an I32")
+                        }
+                        let return_type = &results.get(1).unwrap().ptype;
+                        if return_type != "I32" {
+                            bail!("An Extism export should return an I32 not {}", return_type)
+                        }
+
                         let signature = Signature {
                             name,
                             params,
                             results,
                         };
+
                         signatures.push(signature);
                     }
                 } else {
