@@ -176,42 +176,56 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
                 .get_property("url")
                 .expect("Http Request should have url property");
 
+            extism_pdk::info!("property method");
             let method = req.get_property("method");
+            extism_pdk::info!("property method got");
             let method_str = match method {
                 Ok(m) => m.as_str()?.to_string(),
                 Err(..) => "GET".to_string(),
             };
+            extism_pdk::info!("{}", method_str);
 
             let mut http_req = HttpRequest::new(url.as_str()?).with_method(method_str);
+            extism_pdk::info!("request built");
 
-            let headers = req.get_property("headers");
-            if let Ok(headers) = headers {
+            let headers = req.get_property("headers")?;
+            extism_pdk::info!("got headers");
+            if !headers.is_null_or_undefined() {
+                extism_pdk::info!("headers present");
                 if !headers.is_object() {
                     bail!("Expected headers to be an object");
                 }
-                let mut header_values = headers.properties()?;
-                loop {
-                    let key = header_values.next_key()?;
-                    match key {
-                        None => break,
-                        Some(key) => {
-                            let key = key.as_str()?;
-                            let value = header_values.next_value()?;
-                            let value = value.as_str()?;
-                            http_req.headers.insert(key.to_string(), value.to_string());
+                extism_pdk::info!("is an object");
+                if !headers.is_object() {
+                    let mut header_values = headers.properties()?;
+                    loop {
+                        let key = header_values.next_key()?;
+                        match key {
+                            None => break,
+                            Some(key) => {
+                                let key = key.as_str()?;
+                                let value = header_values.next_value()?;
+                                let value = value.as_str()?;
+                                http_req.headers.insert(key.to_string(), value.to_string());
+                            }
                         }
                     }
                 }
             }
+            extism_pdk::info!("headers done");
 
             let body_arg = args.get(1).ok_or(ctx.null_value()?).unwrap();
+            extism_pdk::info!("body args");
             let mut http_body: Option<String> = None;
             if !body_arg.is_null_or_undefined() {
                 let body_arg = body_arg.as_str()?;
                 http_body = Some(body_arg.to_string());
             }
+            extism_pdk::info!("http body set");
 
+            extism_pdk::info!("ok");
             let resp = http::request::<String>(&http_req, http_body)?;
+            extism_pdk::info!("");
 
             let body = resp.body();
             let body = from_utf8(&body)?;
