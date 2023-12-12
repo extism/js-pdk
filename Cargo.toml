@@ -6,10 +6,10 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0-rc2"
+version = "1.0.0-rc3"
 edition = "2021"
 authors = ["The Extism Authors"]
 license = "BSD-Clause-3"
 
 [workspace.dependencies]
-anyhow = "1.0.68"
+anyhow = "^1.0.68"

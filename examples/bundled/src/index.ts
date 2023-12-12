@@ -1,3 +1,5 @@
 export function greet() {
-  Host.outputString(`Hello, ${Host.inputString()}`)
+  let extra = new TextEncoder().encode("aaa")
+  let decoded = new TextDecoder().decode(extra)
+  Host.outputString(`Hello, ${Host.inputString()} ${decoded}`)
 }
