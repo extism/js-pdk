@@ -71,7 +71,7 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                         if results.len() != 1 {
                             bail!("An Extism export should return an I32")
                         }
-                        let return_type = &results.get(1).unwrap().ptype;
+                        let return_type = &results.get(0).unwrap().ptype;
                         if return_type != "I32" {
                             bail!("An Extism export should return an I32 not {}", return_type)
                         }
