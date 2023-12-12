@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, str::from_utf8};
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
@@ -174,7 +174,7 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
             let url = req
                 .get_property("url")
-                .expect("Http Request should have url property");
+                .context("Http Request should have url property")?;
 
             let method = req.get_property("method");
             let method_str = match method {
@@ -184,35 +184,35 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
             let mut http_req = HttpRequest::new(url.as_str()?).with_method(method_str);
 
-            let headers = req.get_property("headers");
-            if let Ok(headers) = headers {
+            let headers = req.get_property("headers")?;
+            if !headers.is_null_or_undefined() {
                 if !headers.is_object() {
                     bail!("Expected headers to be an object");
                 }
-                let mut header_values = headers.properties()?;
-                loop {
-                    let key = header_values.next_key()?;
-                    match key {
-                        None => break,
-                        Some(key) => {
-                            let key = key.as_str()?;
-                            let value = header_values.next_value()?;
-                            let value = value.as_str()?;
-                            http_req.headers.insert(key.to_string(), value.to_string());
+                if !headers.is_object() {
+                    let mut header_values = headers.properties()?;
+                    loop {
+                        let key = header_values.next_key()?;
+                        match key {
+                            None => break,
+                            Some(key) => {
+                                let key = key.as_str()?;
+                                let value = header_values.next_value()?;
+                                let value = value.as_str()?;
+                                http_req.headers.insert(key.to_string(), value.to_string());
+                            }
                         }
                     }
                 }
             }
 
-            let body_arg = args.get(1).ok_or(ctx.null_value()?).unwrap();
+            let body_arg = args.get(1);
             let mut http_body: Option<String> = None;
-            if !body_arg.is_null_or_undefined() {
-                let body_arg = body_arg.as_str()?;
-                http_body = Some(body_arg.to_string());
+            if let Some(body) = body_arg {
+                http_body = Some(body.as_str()?.to_string());
             }
 
             let resp = http::request::<String>(&http_req, http_body)?;
-
             let body = resp.body();
             let body = from_utf8(&body)?;
 
