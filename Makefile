@@ -8,7 +8,7 @@ install:
 	cargo install --path crates/cli
 
 cli: core
-		cd crates/cli && QUICKJS_WASM_SYS_WASI_SDK_PATH="$(CURDIR)/wasi-sdk/" cargo build --release && cd -
+		cd crates/cli && cargo build --release && cd -
 
 core:
 		cd crates/core \
@@ -16,7 +16,7 @@ core:
 				&& npm install \
 				&& npm run build \
 				&& cd ../.. \
-				&& QUICKJS_WASM_SYS_WASI_SDK_PATH="$(CURDIR)/wasi-sdk/" cargo build --release --target=wasm32-wasi \
+				&& cargo build --release --target=wasm32-wasi \
 				&& cd -
 
 fmt: fmt-core fmt-cli

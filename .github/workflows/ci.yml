@@ -23,6 +23,8 @@ jobs:
           go install github.com/extism/cli/extism@latest
 
       - name: Test
+        env:
+          QUICKJS_WASM_SYS_WASI_SDK_PATH: ./wasi-sdk
         run: |
           make
           make test
