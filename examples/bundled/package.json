@@ -1,5 +1,5 @@
 {
-  "Aname": "bundled-plugin",
+  "name": "bundled-plugin",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
