@@ -21,6 +21,7 @@ jobs:
         run: |
           ./install-wasi-sdk.sh
           go install github.com/extism/cli/extism@latest
+          sudo apt-get install binaryen
 
       - name: Test
         env:
