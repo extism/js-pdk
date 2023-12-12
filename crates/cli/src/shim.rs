@@ -12,8 +12,8 @@ use swc_ecma_ast::{Decl, Module, ModuleDecl, Stmt, TsModuleDecl};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 
 use wasm_encoder::{
-    CodeSection, ExportKind, ExportSection, Function, FunctionSection, Instruction, TypeSection,
-    ValType,
+    CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection, Instruction,
+    TypeSection, ValType,
 };
 use wasm_encoder::{ImportSection, Module as WasmModule};
 
@@ -113,34 +113,9 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
     Ok(interfaces)
 }
 
-pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<()> {
-    let cm: Lrc<SourceMap> = Default::default();
-    let fm = cm.load_file(&interface_path)?;
-    let lexer = Lexer::new(
-        Syntax::Typescript(Default::default()),
-        Default::default(),
-        StringInput::from(&*fm),
-        None,
-    );
-
-    let mut parser = Parser::new_from(lexer);
-
-    let parse_errs = parser.take_errors();
-    if !parse_errs.is_empty() {
-        for e in parse_errs {
-            log::warn!("{:#?}", e);
-        }
-        bail!("Failed to parse typescript interface file.");
-    }
-
-    let module = parser.parse_module().expect("failed to parser module");
-    let interfaces = parse_module(module)?;
-
+/// Generates the wasm shim for the exports
+fn generate_export_wasm_shim(exports: &Interface, export_path: &PathBuf) -> Result<()> {
     let mut wasm_mod = WasmModule::new();
-    let exports = interfaces
-        .iter()
-        .find(|i| i.name == "main")
-        .context("You need to declare a 'main' module with your exports.")?;
 
     // Note: the order in which you set the sections
     // with `wasm_mod.section()` is important
@@ -159,7 +134,7 @@ pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<(
 
     //Encode the import section
     let mut import_sec = ImportSection::new();
-    import_sec.import("coremod", "__invoke", wasm_encoder::EntityType::Function(0));
+    import_sec.import("coremod", "__invoke", EntityType::Function(0));
     wasm_mod.section(&import_sec);
 
     // Encode the function section.
@@ -207,6 +182,36 @@ pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<(
     let wasm_bytes = wasm_mod.finish();
     let mut file = File::create(export_path)?;
     file.write_all(wasm_bytes.as_ref())?;
+    Ok(())
+}
+
+pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<()> {
+    let cm: Lrc<SourceMap> = Default::default();
+    let fm = cm.load_file(&interface_path)?;
+    let lexer = Lexer::new(
+        Syntax::Typescript(Default::default()),
+        Default::default(),
+        StringInput::from(&*fm),
+        None,
+    );
+
+    let mut parser = Parser::new_from(lexer);
+    let parse_errs = parser.take_errors();
+    if !parse_errs.is_empty() {
+        for e in parse_errs {
+            log::warn!("{:#?}", e);
+        }
+        bail!("Failed to parse typescript interface file.");
+    }
+
+    let module = parser.parse_module().expect("failed to parser module");
+    let interfaces = parse_module(module)?;
+    let exports = interfaces
+        .iter()
+        .find(|i| i.name == "main")
+        .context("You need to declare a 'main' module")?;
+
+    generate_export_wasm_shim(exports, export_path)?;
 
     Ok(())
 }
