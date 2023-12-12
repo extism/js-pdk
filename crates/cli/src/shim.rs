@@ -1,6 +1,6 @@
 extern crate swc_common;
 extern crate swc_ecma_parser;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -54,14 +54,19 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                                 ptype: String::from("I32"),
                             })
                             .collect::<Vec<Param>>();
-                        let return_type = &fndecl.function.clone().return_type.unwrap().clone();
+                        let return_type = &fndecl
+                            .function
+                            .clone()
+                            .return_type
+                            .context("Missing return type")?
+                            .clone();
                         let return_type = &return_type
                             .type_ann
                             .as_ts_type_ref()
-                            .unwrap()
+                            .context("Illegal return type")?
                             .type_name
                             .as_ident()
-                            .unwrap()
+                            .context("Illegal return type")?
                             .sym;
                         let results = vec![Param {
                             name: "result".to_string(),
@@ -135,7 +140,7 @@ pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<(
     let exports = interfaces
         .iter()
         .find(|i| i.name == "main")
-        .expect("You need to declare a 'main' module with your exports.");
+        .context("You need to declare a 'main' module with your exports.")?;
 
     // Note: the order in which you set the sections
     // with `wasm_mod.section()` is important
