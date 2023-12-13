@@ -1,9 +1,9 @@
 set -e
 
 OS=''
-case "$OSTYPE" in
-  darwin*)  OS="macos" ;; 
-  linux*)   OS="linux" ;;
+case `uname` in
+  Darwin*)  OS="macos" ;; 
+  Linux*)   OS="linux" ;;
   *)        echo "unknown os: $OSTYPE" && exit 1 ;;
 esac
 
