@@ -37,6 +37,7 @@ fn main() -> Result<()> {
     let tmp_dir = TempDir::new()?;
     let core_path = tmp_dir.path().join("core.wasm");
     let export_shim_path = tmp_dir.path().join("export-shim.wasm");
+    let import_shim_path = tmp_dir.path().join("import-shim.wasm");
 
     {
         env::set_var("EXTISM_WIZEN", "1");
@@ -58,7 +59,7 @@ fn main() -> Result<()> {
     }
 
     let interface_path = PathBuf::from(&opts.interface_file);
-    create_shims(&interface_path, &export_shim_path)?;
+    create_shims(&interface_path, &export_shim_path, &import_shim_path)?;
 
     let mut command = Command::new("wasm-merge")
         .arg(&core_path)

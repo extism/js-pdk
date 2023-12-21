@@ -119,7 +119,12 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
 }
 
 /// Generates the wasm shim for the exports
-fn generate_export_wasm_shim(exports: &Interface, export_path: &PathBuf) -> Result<()> {
+fn generate_export_wasm_shim(
+    exports: &Interface,
+    export_path: &PathBuf,
+    imports: Option<&Interface>,
+    import_path: &PathBuf,
+) -> Result<()> {
     let mut wasm_mod = WasmModule::new();
 
     // Note: the order in which you set the sections
@@ -190,7 +195,11 @@ fn generate_export_wasm_shim(exports: &Interface, export_path: &PathBuf) -> Resu
     Ok(())
 }
 
-pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<()> {
+pub fn create_shims(
+    interface_path: &PathBuf,
+    export_path: &PathBuf,
+    import_path: &PathBuf,
+) -> Result<()> {
     let cm: Lrc<SourceMap> = Default::default();
     if !interface_path.exists() {
         bail!(
@@ -221,8 +230,9 @@ pub fn create_shims(interface_path: &PathBuf, export_path: &PathBuf) -> Result<(
         .iter()
         .find(|i| i.name == "main")
         .context("You need to declare a 'main' module")?;
+    let imports = interfaces.iter().find(|i| i.name == "extism:host/user");
 
-    generate_export_wasm_shim(exports, export_path)?;
+    generate_export_wasm_shim(exports, export_path, imports, import_path)?;
 
     Ok(())
 }
