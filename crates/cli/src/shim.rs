@@ -100,13 +100,13 @@ fn generate_wasm_shims(
     // Encode the type section.
     let mut types = TypeSection::new();
 
-    // for __invokeHostFunc
-    let params = vec![ValType::I64, ValType::I64];
+    // for all other host funcs (TODO fix)
+    let params = vec![ValType::I64];
     let results = vec![ValType::I64];
     types.function(params, results);
 
-    // for all other host funcs (TODO fix)
-    let params = vec![ValType::I64];
+    // for __invokeHostFunc
+    let params = vec![ValType::I32, ValType::I64];
     let results = vec![ValType::I64];
     types.function(params, results);
     import_mod.section(&types);
@@ -118,14 +118,14 @@ fn generate_wasm_shims(
         import_sec.import(
             "extism:host/user",
             i.name.as_str(),
-            wasm_encoder::EntityType::Function(1),
+            wasm_encoder::EntityType::Function(0),
         );
     }
     import_mod.section(&import_sec);
 
     // Encode the function section.
     let mut functions = FunctionSection::new();
-    functions.function(0);
+    functions.function(1);
     import_mod.section(&functions);
 
     // encode tables pointing to imports
@@ -163,9 +163,8 @@ fn generate_wasm_shims(
     let mut f = Function::new(locals);
     // we will essentially call the eval function
     // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
-    f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::LocalGet(1));
-    //f.instruction(&Instruction::I32Const(0));
+    f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
     f.instruction(&Instruction::End);
     codes.function(&f);

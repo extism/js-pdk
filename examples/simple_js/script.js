@@ -10,7 +10,7 @@ function greet() {
   let ret = myHostFunc1(msg.offset)
   console.log(`Ret: ${ret}`)
   msg = Memory.find(ret)
-  console.log(`Ret: ${msg}`)
+  console.log(`Ret: ${msg.offset} ${msg.len}`)
 
   // let msg2 = Memory.fromBuffer((new TextEncoder().encode("hello from js 2")).buffer)
   // console.log(`MSG ${msg2.offset} ${msg2.len}`)
