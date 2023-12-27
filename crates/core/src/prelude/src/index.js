@@ -66,3 +66,18 @@ class TextEncoder {
 
 globalThis.TextDecoder = TextDecoder;
 globalThis.TextEncoder = TextEncoder;
+
+Host.getFunctions = () => {
+  const funcs = {}
+  let funcIdx = 0
+  const createInvoke = (funcIdx) => {
+    return (ptr) => {
+      console.log(`name and func ${funcIdx} ptr ${ptr}`)
+      return Host.invokeFunc(funcIdx, ptr)
+    }
+  }
+  Host.__hostFunctions.forEach(name => {
+    funcs[name] = createInvoke(funcIdx++)
+  })
+  return funcs
+}

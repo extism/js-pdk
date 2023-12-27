@@ -5,6 +5,11 @@ use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 
+#[link(wasm_import_module = "codemod")]
+extern "C" {
+    fn __invokeHostFunc(func_idx: u64, a: u64) -> u64;
+}
+
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
@@ -16,6 +21,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     let cfg = build_config_object(&context)?;
     let decoder = build_decoder(&context)?;
     let encoder = build_encoder(&context)?;
+    let mem = build_memory(&context)?;
 
     let global = context.global_object()?;
     global.set_property("console", console)?;
@@ -24,6 +30,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("Var", var)?;
     global.set_property("Http", http)?;
     global.set_property("Config", cfg)?;
+    global.set_property("Memory", mem)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
 
@@ -106,12 +113,23 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Bool(true))
         },
     )?;
+    let host_invoke_func = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let func_id = args.get(0).unwrap().as_i32_unchecked();
+            let ptr = args.get(1).unwrap().as_u32_unchecked();
+            //let _result = invokeHostFunc(func_id as u64, ptr as u64) };
+            let result = unsafe { __invokeHostFunc(func_id as u64, ptr as u64) };
+            extism_pdk::info!("{:#?}", &result);
+            Ok(JSValue::Int(result as i32))
+        },
+    )?;
 
     let host_object = context.object_value()?;
     host_object.set_property("inputBytes", host_input_bytes)?;
     host_object.set_property("inputString", host_input_string)?;
     host_object.set_property("outputBytes", host_output_bytes)?;
     host_object.set_property("outputString", host_output_string)?;
+    host_object.set_property("invokeFunc", host_invoke_func)?;
 
     Ok(host_object)
 }
@@ -253,6 +271,47 @@ fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     config_obj.set_property("get", config_get)?;
 
     Ok(config_obj)
+}
+
+fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
+    let memory_from_buffer = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let data = args.get(0).ok_or(anyhow!("Expected data argument"))?;
+            if !data.is_array_buffer() {
+                bail!("Expected data to be an array buffer");
+            }
+            let data = data.as_bytes()?;
+            let m = extism_pdk::Memory::from_bytes(data)?;
+            let mut mem = HashMap::new();
+            let offset = JSValue::Int(m.offset() as i32);
+            let len = JSValue::Int(m.len() as i32);
+            mem.insert("offset".to_string(), offset);
+            mem.insert("len".to_string(), len);
+            Ok(JSValue::Object(mem))
+        },
+    )?;
+    let memory_find = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let ptr = args.get(0).ok_or(anyhow!("Expected ptr argument"))?;
+            if !ptr.is_number() {
+                bail!("Expected a pointer");
+            }
+            let ptr = ptr.as_i32_unchecked();
+            let m = extism_pdk::Memory::find(ptr as u64).unwrap();
+            let mut mem = HashMap::new();
+            let offset = JSValue::Int(m.offset() as i32);
+            let len = JSValue::Int(m.len() as i32);
+            mem.insert("offset".to_string(), offset);
+            mem.insert("len".to_string(), len);
+            Ok(JSValue::Object(mem))
+        },
+    )?;
+
+    let mem_obj = context.object_value()?;
+    mem_obj.set_property("fromBuffer", memory_from_buffer)?;
+    mem_obj.set_property("find", memory_find)?;
+
+    Ok(mem_obj)
 }
 
 fn build_decoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {

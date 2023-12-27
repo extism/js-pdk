@@ -1,134 +1,30 @@
 extern crate swc_common;
 extern crate swc_ecma_parser;
-use anyhow::{bail, Context, Result};
+use anyhow::Result;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-use swc_common::sync::Lrc;
-use swc_common::SourceMap;
-use swc_ecma_ast::ModuleItem;
-use swc_ecma_ast::{Decl, Module, ModuleDecl, Stmt, TsModuleDecl};
-use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
-
 use wasm_encoder::{
-    CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection, Instruction,
-    TypeSection, ValType,
+    CodeSection, ConstExpr, ElementSection, Elements, EntityType, ExportKind, ExportSection,
+    Function, FunctionSection, HeapType, Instruction, TableSection, TableType, TypeSection,
+    ValType,
 };
 use wasm_encoder::{ImportSection, Module as WasmModule};
 
-#[derive(Debug, Clone)]
-struct Param {
-    pub name: String,
-    pub ptype: String,
-}
-
-#[derive(Debug, Clone)]
-struct Signature {
-    pub name: String,
-    pub params: Vec<Param>,
-    pub results: Vec<Param>,
-}
-
-#[derive(Debug, Clone)]
-struct Interface {
-    pub name: String,
-    pub functions: Vec<Signature>,
-}
-
-fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
-    let mut signatures = Vec::new();
-
-    for block in &tsmod.body {
-        if let Some(block) = block.as_ts_module_block() {
-            for decl in &block.body {
-                if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(e)) = decl {
-                    if let Some(fndecl) = e.decl.as_fn_decl() {
-                        let name = fndecl.ident.sym.as_str().to_string();
-                        let params = vec![]; // TODO ignoring params for now
-                        let return_type = &fndecl
-                            .function
-                            .clone()
-                            .return_type
-                            .context("Missing return type")?
-                            .clone();
-                        let return_type = &return_type
-                            .type_ann
-                            .as_ts_type_ref()
-                            .context("Illegal return type")?
-                            .type_name
-                            .as_ident()
-                            .context("Illegal return type")?
-                            .sym;
-                        let results = vec![Param {
-                            name: "result".to_string(),
-                            ptype: return_type.to_string(),
-                        }];
-
-                        if !params.is_empty() {
-                            bail!("An Extism export should take no params and return I32")
-                        }
-                        if results.len() != 1 {
-                            bail!("An Extism export should return an I32")
-                        }
-                        let return_type = &results.get(0).unwrap().ptype;
-                        if return_type != "I32" {
-                            bail!("An Extism export should return an I32 not {}", return_type)
-                        }
-
-                        let signature = Signature {
-                            name,
-                            params,
-                            results,
-                        };
-
-                        signatures.push(signature);
-                    }
-                } else {
-                    bail!("Don't know what to do with non export on main module");
-                }
-            }
-        }
-    }
-
-    Ok(Interface {
-        name: "main".to_string(),
-        functions: signatures,
-    })
-}
-
-fn parse_module(module: Module) -> Result<Vec<Interface>> {
-    let mut interfaces = Vec::new();
-    for statement in &module.body {
-        if let ModuleItem::Stmt(Stmt::Decl(Decl::TsModule(submod))) = statement {
-            let name = if let Some(name) = submod.id.as_str() {
-                Some(name.value.as_str())
-            } else {
-                None
-            };
-
-            if let Some("main") = name {
-                interfaces.push(parse_module_decl(submod)?);
-            } else {
-                bail!("Could not parse module with name {:#?}", name);
-            }
-        }
-    }
-
-    Ok(interfaces)
-}
+use crate::interface_parser::{Interface, PluginInterface};
 
 /// Generates the wasm shim for the exports
-fn generate_export_wasm_shim(
-    exports: &Interface,
+fn generate_wasm_shims(
+    exports: Interface,
     export_path: &PathBuf,
-    imports: Option<&Interface>,
+    imports: Option<Interface>,
     import_path: &PathBuf,
 ) -> Result<()> {
-    let mut wasm_mod = WasmModule::new();
+    let mut export_mod = WasmModule::new();
 
     // Note: the order in which you set the sections
-    // with `wasm_mod.section()` is important
+    // with `export_mod.section()` is important
 
     // Encode the type section.
     let mut types = TypeSection::new();
@@ -140,12 +36,12 @@ fn generate_export_wasm_shim(
     let params = vec![];
     let results = vec![ValType::I32];
     types.function(params, results);
-    wasm_mod.section(&types);
+    export_mod.section(&types);
 
     //Encode the import section
     let mut import_sec = ImportSection::new();
     import_sec.import("coremod", "__invoke", EntityType::Function(0));
-    wasm_mod.section(&import_sec);
+    export_mod.section(&import_sec);
 
     // Encode the function section.
     let mut functions = FunctionSection::new();
@@ -155,7 +51,7 @@ fn generate_export_wasm_shim(
     for _ in exports.functions.iter() {
         functions.function(type_index);
     }
-    wasm_mod.section(&functions);
+    export_mod.section(&functions);
 
     let mut func_index = 1;
 
@@ -169,7 +65,7 @@ fn generate_export_wasm_shim(
         export_sec.export(i.name.as_str(), ExportKind::Func, func_index);
         func_index += 1;
     }
-    wasm_mod.section(&export_sec);
+    export_mod.section(&export_sec);
 
     // Encode the code section.
     let mut codes = CodeSection::new();
@@ -186,53 +82,112 @@ fn generate_export_wasm_shim(
         codes.function(&f);
         export_idx += 1;
     }
-    wasm_mod.section(&codes);
+    export_mod.section(&codes);
 
     // Extract the encoded Wasm bytes for this module.
-    let wasm_bytes = wasm_mod.finish();
+    let wasm_bytes = export_mod.finish();
     let mut file = File::create(export_path)?;
     file.write_all(wasm_bytes.as_ref())?;
+
+    if imports.is_none() {
+        return Ok(());
+    }
+
+    let imports = imports.unwrap();
+
+    let mut import_mod = WasmModule::new();
+
+    // Encode the type section.
+    let mut types = TypeSection::new();
+
+    // for __invokeHostFunc
+    let params = vec![ValType::I64, ValType::I64];
+    let results = vec![ValType::I64];
+    types.function(params, results);
+
+    // for all other host funcs (TODO fix)
+    let params = vec![ValType::I64];
+    let results = vec![ValType::I64];
+    types.function(params, results);
+    import_mod.section(&types);
+
+    // Encode the import section
+    let mut import_sec = ImportSection::new();
+
+    for i in imports.functions.iter() {
+        import_sec.import(
+            "extism:host/user",
+            i.name.as_str(),
+            wasm_encoder::EntityType::Function(1),
+        );
+    }
+    import_mod.section(&import_sec);
+
+    // Encode the function section.
+    let mut functions = FunctionSection::new();
+    functions.function(0);
+    import_mod.section(&functions);
+
+    // encode tables pointing to imports
+    let mut tables = TableSection::new();
+    let table_type = TableType {
+        element_type: wasm_encoder::RefType {
+            nullable: true,
+            heap_type: HeapType::Func,
+        },
+        minimum: 2,
+        maximum: None,
+    };
+    tables.table(table_type);
+    import_mod.section(&tables);
+
+    // Encode the export section.
+    let mut export_sec = ExportSection::new();
+    export_sec.export(
+        "__invokeHostFunc",
+        ExportKind::Func,
+        imports.functions.len() as u32, // will be the last function
+    );
+    import_mod.section(&export_sec);
+
+    // Encode the element section.
+    let mut elements = ElementSection::new();
+    let func_elems = Elements::Functions(&[0, 1]);
+    let offset = ConstExpr::i32_const(0);
+    elements.active(None, &offset, func_elems);
+    import_mod.section(&elements);
+
+    // Encode the code section.
+    let mut codes = CodeSection::new();
+    let locals = vec![];
+    let mut f = Function::new(locals);
+    // we will essentially call the eval function
+    // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::LocalGet(1));
+    //f.instruction(&Instruction::I32Const(0));
+    f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
+    f.instruction(&Instruction::End);
+    codes.function(&f);
+    import_mod.section(&codes);
+
+    let wasm_bytes = import_mod.finish();
+    let mut file = File::create(import_path)?;
+    file.write_all(wasm_bytes.as_ref())?;
+
     Ok(())
 }
 
 pub fn create_shims(
-    interface_path: &PathBuf,
+    plugin_interface: &PluginInterface,
     export_path: &PathBuf,
     import_path: &PathBuf,
 ) -> Result<()> {
-    let cm: Lrc<SourceMap> = Default::default();
-    if !interface_path.exists() {
-        bail!(
-            "Could not find interface file {}. Set to a valid d.ts file with the -i flag",
-            &interface_path.to_str().unwrap()
-        );
-    }
-    let fm = cm.load_file(&interface_path)?;
-    let lexer = Lexer::new(
-        Syntax::Typescript(Default::default()),
-        Default::default(),
-        StringInput::from(&*fm),
-        None,
-    );
-
-    let mut parser = Parser::new_from(lexer);
-    let parse_errs = parser.take_errors();
-    if !parse_errs.is_empty() {
-        for e in parse_errs {
-            log::warn!("{:#?}", e);
-        }
-        bail!("Failed to parse typescript interface file.");
-    }
-
-    let module = parser.parse_module().expect("failed to parser module");
-    let interfaces = parse_module(module)?;
-    let exports = interfaces
-        .iter()
-        .find(|i| i.name == "main")
-        .context("You need to declare a 'main' module")?;
-    let imports = interfaces.iter().find(|i| i.name == "extism:host/user");
-
-    generate_export_wasm_shim(exports, export_path, imports, import_path)?;
-
+    generate_wasm_shims(
+        plugin_interface.exports.clone(),
+        export_path,
+        plugin_interface.imports.clone(),
+        import_path,
+    )?;
     Ok(())
 }
