@@ -1,8 +1,6 @@
 extern crate swc_common;
 extern crate swc_ecma_parser;
 use anyhow::{bail, Context, Result};
-use std::fs::File;
-use std::io::prelude::*;
 use std::path::PathBuf;
 
 use swc_common::sync::Lrc;
@@ -33,9 +31,10 @@ pub struct Interface {
 #[derive(Debug, Clone)]
 pub struct PluginInterface {
     pub exports: Interface,
-    pub imports: Option<Interface>,
+    pub imports: Interface,
 }
 
+/// Parses the "user" part of the module which maps to the wasm imports
 fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
     let mut signatures = Vec::new();
     let name = i.id.sym.as_str();
@@ -89,6 +88,7 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
     }
 }
 
+/// Try to parse the imports
 fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Result<Option<Interface>> {
     for block in &tsmod.body {
         if let Some(block) = block.clone().ts_module_block() {
@@ -108,6 +108,7 @@ fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Result<Option<Interface>> {
     Ok(None)
 }
 
+/// Parses the main module declaration (the extism exports)
 fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
     let mut signatures = Vec::new();
 
@@ -169,6 +170,7 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
     })
 }
 
+/// Parse the whole TS module type file
 fn parse_module(module: Module) -> Result<Vec<Interface>> {
     let mut interfaces = Vec::new();
     for statement in &module.body {
@@ -198,6 +200,7 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
     Ok(interfaces)
 }
 
+/// Parse the d.ts file representing the plugin interface
 pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface> {
     let cm: Lrc<SourceMap> = Default::default();
     let fm = cm.load_file(&interface_path)?;
@@ -212,7 +215,7 @@ pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface>
     let parse_errs = parser.take_errors();
     if !parse_errs.is_empty() {
         for e in parse_errs {
-            log::warn!("{:#?}", e);
+            log::error!("{:#?}", e);
         }
         bail!("Failed to parse typescript interface file.");
     }
@@ -227,7 +230,11 @@ pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface>
     let imports = interfaces
         .iter()
         .find(|i| i.name == "user")
-        .map(|i| i.to_owned());
+        .map(|i| i.to_owned())
+        .unwrap_or(Interface {
+            name: "user".into(),
+            functions: vec![],
+        });
 
     Ok(PluginInterface { exports, imports })
 }

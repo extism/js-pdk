@@ -12,13 +12,13 @@ use wasm_encoder::{
 };
 use wasm_encoder::{ImportSection, Module as WasmModule};
 
-use crate::interface_parser::{Interface, PluginInterface};
+use crate::ts_parser::Interface;
 
 /// Generates the wasm shim for the exports
-fn generate_wasm_shims(
+pub fn generate_wasm_shims(
     exports: Interface,
     export_path: &PathBuf,
-    imports: Option<Interface>,
+    imports: Interface,
     import_path: &PathBuf,
 ) -> Result<()> {
     let mut export_mod = WasmModule::new();
@@ -89,21 +89,18 @@ fn generate_wasm_shims(
     let mut file = File::create(export_path)?;
     file.write_all(wasm_bytes.as_ref())?;
 
-    if imports.is_none() {
-        return Ok(());
-    }
-
-    let imports = imports.unwrap();
-
+    // Now do the imports
     let mut import_mod = WasmModule::new();
 
     // Encode the type section.
     let mut types = TypeSection::new();
 
     // for all other host funcs (TODO fix)
-    let params = vec![ValType::I64];
-    let results = vec![ValType::I64];
-    types.function(params, results);
+    if !imports.functions.is_empty() {
+        let params = vec![ValType::I64];
+        let results = vec![ValType::I64];
+        types.function(params, results);
+    }
 
     // for __invokeHostFunc
     let params = vec![ValType::I32, ValType::I64];
@@ -112,34 +109,39 @@ fn generate_wasm_shims(
     import_mod.section(&types);
 
     // Encode the import section
-    let mut import_sec = ImportSection::new();
+    if !imports.functions.is_empty() {
+        let mut import_sec = ImportSection::new();
 
-    for i in imports.functions.iter() {
-        import_sec.import(
-            "extism:host/user",
-            i.name.as_str(),
-            wasm_encoder::EntityType::Function(0),
-        );
+        for i in imports.functions.iter() {
+            import_sec.import(
+                "extism:host/user",
+                i.name.as_str(),
+                wasm_encoder::EntityType::Function(0),
+            );
+        }
+        import_mod.section(&import_sec);
     }
-    import_mod.section(&import_sec);
 
     // Encode the function section.
+    let func_type = if imports.functions.is_empty() { 0 } else { 1 };
     let mut functions = FunctionSection::new();
-    functions.function(1);
+    functions.function(func_type);
     import_mod.section(&functions);
 
-    // encode tables pointing to imports
-    let mut tables = TableSection::new();
-    let table_type = TableType {
-        element_type: wasm_encoder::RefType {
-            nullable: true,
-            heap_type: HeapType::Func,
-        },
-        minimum: 2,
-        maximum: None,
-    };
-    tables.table(table_type);
-    import_mod.section(&tables);
+    if !imports.functions.is_empty() {
+        // encode tables pointing to imports
+        let mut tables = TableSection::new();
+        let table_type = TableType {
+            element_type: wasm_encoder::RefType {
+                nullable: true,
+                heap_type: HeapType::Func,
+            },
+            minimum: imports.functions.len() as u32,
+            maximum: None,
+        };
+        tables.table(table_type);
+        import_mod.section(&tables);
+    }
 
     // Encode the export section.
     let mut export_sec = ExportSection::new();
@@ -150,23 +152,35 @@ fn generate_wasm_shims(
     );
     import_mod.section(&export_sec);
 
-    // Encode the element section.
-    let mut elements = ElementSection::new();
-    let func_elems = Elements::Functions(&[0, 1]);
-    let offset = ConstExpr::i32_const(0);
-    elements.active(None, &offset, func_elems);
-    import_mod.section(&elements);
+    if !imports.functions.is_empty() {
+        // Encode the element section.
+        let mut elements = ElementSection::new();
+        let func_elems = Elements::Functions(&[0, 1]);
+        let offset = ConstExpr::i32_const(0);
+        elements.active(None, &offset, func_elems);
+        import_mod.section(&elements);
+    }
 
     // Encode the code section.
     let mut codes = CodeSection::new();
     let locals = vec![];
     let mut f = Function::new(locals);
-    // we will essentially call the eval function
-    // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
-    f.instruction(&Instruction::LocalGet(1));
-    f.instruction(&Instruction::LocalGet(0));
-    f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
-    f.instruction(&Instruction::End);
+    if imports.functions.is_empty() {
+        // make it a no-op
+        f.instruction(&Instruction::LocalGet(1));
+        f.instruction(&Instruction::LocalGet(0));
+        f.instruction(&Instruction::Drop);
+        f.instruction(&Instruction::Drop);
+        f.instruction(&Instruction::I64Const(-1));
+        f.instruction(&Instruction::End);
+    } else {
+        // we will essentially call the eval function
+        // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
+        f.instruction(&Instruction::LocalGet(1));
+        f.instruction(&Instruction::LocalGet(0));
+        f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
+        f.instruction(&Instruction::End);
+    }
     codes.function(&f);
     import_mod.section(&codes);
 
@@ -174,19 +188,5 @@ fn generate_wasm_shims(
     let mut file = File::create(import_path)?;
     file.write_all(wasm_bytes.as_ref())?;
 
-    Ok(())
-}
-
-pub fn create_shims(
-    plugin_interface: &PluginInterface,
-    export_path: &PathBuf,
-    import_path: &PathBuf,
-) -> Result<()> {
-    generate_wasm_shims(
-        plugin_interface.exports.clone(),
-        export_path,
-        plugin_interface.imports.clone(),
-        import_path,
-    )?;
     Ok(())
 }

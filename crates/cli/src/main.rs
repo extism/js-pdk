@@ -1,14 +1,13 @@
-mod interface_parser;
 mod opt;
 mod options;
-mod shim;
+mod shims;
+mod ts_parser;
 
-use crate::interface_parser::parse_interface_file;
 use crate::options::Options;
+use crate::ts_parser::parse_interface_file;
 use anyhow::{bail, Result};
-use shim::create_shims;
+use shims::generate_wasm_shims;
 use std::env;
-use std::fs::remove_dir_all;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -31,6 +30,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // We need to parse the interface.d.ts file
     let interface_path = PathBuf::from(&opts.interface_file);
     if !interface_path.exists() {
         bail!(
@@ -38,32 +38,42 @@ fn main() -> Result<()> {
             &interface_path.to_str().unwrap()
         );
     }
-
     let plugin_interface = parse_interface_file(&interface_path)?;
 
+    // Copy in the user's js code from stdin
     let mut input_file = fs::File::open(&opts.input_js)?;
     let mut user_code: Vec<u8> = vec![];
     input_file.read_to_end(&mut user_code)?;
 
-    let mut contents = "Host.__hostFunctions = ['myHostFunc1', 'myHostFunc2'].sort();\n"
+    // If we have imports, we need to inject some state needed for host function support
+    let names = &plugin_interface
+        .imports
+        .functions
+        .iter()
+        .map(|s| format!("'{}'", &s.name))
+        .collect::<Vec<String>>()
+        .join(",");
+    let mut contents = format!("Host.__hostFunctions = [{}].sort();\n", names)
         .as_bytes()
         .to_owned();
-
     contents.append(&mut user_code);
 
+    // Create a tmp dir to hold all the library objects
+    // This can go away once we do all the wasm-merge stuff in process
+    let tmp_dir = TempDir::new()?;
+    let core_path = tmp_dir.path().join("core.wasm");
+    let export_shim_path = tmp_dir.path().join("export-shim.wasm");
+    let import_shim_path = tmp_dir.path().join("import-shim.wasm");
+    let linked_shim_path = tmp_dir.path().join("linked.wasm");
+
+    // let tmp_dir = "/tmp/derp";
+    // let core_path = PathBuf::from("/tmp/derp/core.wasm");
+    // let export_shim_path = PathBuf::from("/tmp/derp/export-shim.wasm");
+    // let import_shim_path = PathBuf::from("/tmp/derp/import-shim.wasm");
+    // let linked_shim_path = PathBuf::from("/tmp/derp/linked.wasm");
+
+    // First wizen the core module
     let self_cmd = env::args().next().expect("Expected a command argument");
-    //let tmp_dir = TempDir::new()?;
-    // let core_path = tmp_dir.path().join("core.wasm");
-    // let export_shim_path = tmp_dir.path().join("export-shim.wasm");
-    // let import_shim_path = tmp_dir.path().join("import-shim.wasm");
-    // let linked_shim_path = tmp_dir.path().join("linked.wasm");
-
-    let tmp_dir = "/tmp/derp";
-    let core_path = PathBuf::from("/tmp/derp/core.wasm");
-    let export_shim_path = PathBuf::from("/tmp/derp/export-shim.wasm");
-    let import_shim_path = PathBuf::from("/tmp/derp/import-shim.wasm");
-    let linked_shim_path = PathBuf::from("/tmp/derp/linked.wasm");
-
     {
         env::set_var("EXTISM_WIZEN", "1");
         let mut command = Command::new(self_cmd)
@@ -83,8 +93,16 @@ fn main() -> Result<()> {
         }
     }
 
-    create_shims(&plugin_interface, &export_shim_path, &import_shim_path)?;
+    // Create our shim files given our parsed TS module object
+    // We have a shim file for exports and one optional one for imports
+    generate_wasm_shims(
+        plugin_interface.exports,
+        &export_shim_path,
+        plugin_interface.imports,
+        &import_shim_path,
+    )?;
 
+    // Merge the export shim with the core module
     let mut command = Command::new("wasm-merge")
         .arg(&core_path)
         .arg("coremod")
@@ -98,14 +116,16 @@ fn main() -> Result<()> {
         bail!("wasm-merge failed. Couldn't merge export shim");
     }
 
-    if !&import_shim_path.exists() {
-        fs::copy(&linked_shim_path, &opts.output)?;
-        //remove_dir_all(tmp_dir)?;
-        return Ok(());
-    }
+    // // If there is no import shim, then there are no imports
+    // // and we can copy this intermediate wasm module as the output and return.
+    // // There is a probably a better way to signal this than just checking
+    // // for the existence of the file.
+    // if !&import_shim_path.exists() {
+    //     fs::copy(&linked_shim_path, &opts.output)?;
+    //     return Ok(());
+    // }
 
-    println!("merge imports now to {:#?}", &opts.output.to_str());
-
+    // Merge the import shim with the core+export (linked) module
     let mut command = Command::new("wasm-merge")
         .arg(&linked_shim_path)
         .arg("coremod")
@@ -120,8 +140,6 @@ fn main() -> Result<()> {
     if !status.success() {
         bail!("wasm-merge failed. Couldn't merge import shim.");
     }
-
-    //remove_dir_all(tmp_dir)?;
 
     Ok(())
 }

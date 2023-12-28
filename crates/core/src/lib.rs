@@ -8,11 +8,6 @@ mod globals;
 
 static mut CONTEXT: OnceCell<JSContextRef> = OnceCell::new();
 
-#[link(wasm_import_module = "codemod")]
-extern "C" {
-    fn __invokeHostFunc(func_idx: u64, a: u64) -> u64;
-}
-
 #[export_name = "wizer.initialize"]
 pub extern "C" fn init() {
     let context = JSContextRef::default();
