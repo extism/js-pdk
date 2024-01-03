@@ -89,7 +89,7 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
                         signatures.push(signature);
                     }
                     _ => {
-                        println!("Warning: don't know what to do with sig {:#?}", sig);
+                        log::warn!("Warning: don't know what to do with sig {:#?}", sig);
                     }
                 }
             }
@@ -203,7 +203,7 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
 fn validate_interface(plugin_interface: &PluginInterface) -> Result<()> {
     let mut has_err = false;
     let mut log_err = |msg: String| {
-        println!("{}", msg);
+        log::error!("{}", msg);
         has_err = true;
     };
 
@@ -287,7 +287,7 @@ pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface>
         for e in parse_errs {
             log::error!("{:#?}", e);
         }
-        bail!("Failed to parse typescript interface file.");
+        bail!("Failed to parse TypeScript interface file. It is not valid TypeScript.");
     }
 
     let module = parser.parse_module().expect("failed to parser module");

@@ -6,6 +6,8 @@ mod ts_parser;
 use crate::options::Options;
 use crate::ts_parser::parse_interface_file;
 use anyhow::{bail, Result};
+use env_logger::{Builder, Target};
+use log::LevelFilter;
 use shims::generate_wasm_shims;
 use std::env;
 use std::io::{Read, Write};
@@ -16,6 +18,12 @@ use structopt::StructOpt;
 use tempfile::TempDir;
 
 fn main() -> Result<()> {
+    let mut builder = Builder::new();
+    builder
+        .filter(None, LevelFilter::Info)
+        .target(Target::Stdout)
+        .init();
+
     let opts = Options::from_args();
     let wizen = env::var("EXTISM_WIZEN");
 
