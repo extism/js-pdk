@@ -124,15 +124,6 @@ fn main() -> Result<()> {
         bail!("wasm-merge failed. Couldn't merge export shim");
     }
 
-    // // If there is no import shim, then there are no imports
-    // // and we can copy this intermediate wasm module as the output and return.
-    // // There is a probably a better way to signal this than just checking
-    // // for the existence of the file.
-    // if !&import_shim_path.exists() {
-    //     fs::copy(&linked_shim_path, &opts.output)?;
-    //     return Ok(());
-    // }
-
     // Merge the import shim with the core+export (linked) module
     let mut command = Command::new("wasm-merge")
         .arg(&linked_shim_path)
