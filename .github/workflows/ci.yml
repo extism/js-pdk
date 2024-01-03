@@ -12,6 +12,10 @@ jobs:
           toolchain: 1.73.0
           target: wasm32-wasi
 
+      - name: IDK why i need to do this
+        run: |
+          rustup target add wasm32-wasi
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
