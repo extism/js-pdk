@@ -15,6 +15,15 @@ pub struct Param {
     pub ptype: String,
 }
 
+impl Param {
+    pub fn new(name: &str, ptype: &str) -> Param {
+        Param {
+            name: name.to_string(),
+            ptype: ptype.to_string().to_uppercase(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Signature {
     pub name: String,
@@ -59,13 +68,19 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
                                     .as_ident()
                                     .unwrap()
                                     .sym;
-                                Param {
-                                    name: vn.to_string(),
-                                    ptype: typ.to_string(),
-                                }
+                                Param::new(vn, typ)
                             })
                             .collect::<Vec<Param>>();
-                        let results = Vec::new();
+                        let return_type = &t.type_ann.clone().context("Missing return type")?;
+                        let return_type = &return_type
+                            .type_ann
+                            .as_ts_type_ref()
+                            .context("Illegal return type")?
+                            .type_name
+                            .as_ident()
+                            .context("Illegal return type")?
+                            .sym;
+                        let results = vec![Param::new("return", return_type)];
                         let signature = Signature {
                             name,
                             params,
@@ -133,22 +148,7 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                             .as_ident()
                             .context("Illegal return type")?
                             .sym;
-                        let results = vec![Param {
-                            name: "result".to_string(),
-                            ptype: return_type.to_string(),
-                        }];
-
-                        if !params.is_empty() {
-                            bail!("An Extism export should take no params and return I32")
-                        }
-                        if results.len() != 1 {
-                            bail!("An Extism export should return an I32")
-                        }
-                        let return_type = &results.get(0).unwrap().ptype;
-                        if return_type != "I32" {
-                            bail!("An Extism export should return an I32 not {}", return_type)
-                        }
-
+                        let results = vec![Param::new("result", return_type)];
                         let signature = Signature {
                             name,
                             params,
@@ -200,6 +200,76 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
     Ok(interfaces)
 }
 
+fn validate_interface(plugin_interface: &PluginInterface) -> Result<()> {
+    let mut has_err = false;
+    let mut log_err = |msg: String| {
+        println!("{}", msg);
+        has_err = true;
+    };
+
+    for e in &plugin_interface.exports.functions {
+        if !e.params.is_empty() {
+            log_err(format!("The export {} should take no params", e.name));
+        }
+        if e.results.len() != 1 {
+            log_err(format!("The export {} should return a single I32", e.name));
+        } else {
+            let return_type = &e.results.get(0).unwrap().ptype;
+            if return_type != "I32" {
+                log_err(format!(
+                    "The export {} should return an I32 not {}",
+                    e.name, return_type
+                ));
+            }
+        }
+    }
+
+    for i in &plugin_interface.imports.functions {
+        if i.results.is_empty() {
+            log_err(format!("Import function {} needs to return an I64", i.name));
+        } else if i.results.len() > 1 {
+            log_err(format!(
+                "Import function {} has too many returns. We only support 1 at the moment",
+                i.name
+            ));
+        } else {
+            let result = i.results.get(0).unwrap();
+            if result.ptype != "I64" {
+                log_err(format!(
+                    "Import function {} needs to return an I64 but instead returns {}",
+                    i.name, result.ptype
+                ));
+            }
+        }
+
+        if i.params.is_empty() {
+            log_err(format!(
+                "Import function {} needs to accept a single I64 pointer as param",
+                i.name
+            ));
+        } else if i.params.len() > 1 {
+            log_err(format!(
+                "Import function {} has too many params. We only support 1 at the moment",
+                i.name
+            ));
+        } else {
+            let param = i.params.get(0).unwrap();
+            if param.ptype != "I64" {
+                log_err(format!(
+                    "Import function {} needs to accept a single I64 but instead takes {}",
+                    i.name, param.ptype
+                ));
+            }
+        }
+    }
+
+    if has_err {
+        bail!("Failed to validate plugin interface file");
+    }
+
+    Ok(())
+}
+
 /// Parse the d.ts file representing the plugin interface
 pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface> {
     let cm: Lrc<SourceMap> = Default::default();
@@ -236,5 +306,7 @@ pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface>
             functions: vec![],
         });
 
-    Ok(PluginInterface { exports, imports })
+    let plugin_interface = PluginInterface { exports, imports };
+    validate_interface(&plugin_interface)?;
+    Ok(plugin_interface)
 }
