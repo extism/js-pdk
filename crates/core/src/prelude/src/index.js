@@ -64,8 +64,53 @@ class TextEncoder {
   }
 }
 
+class MemoryHandle {
+  constructor(offset, len) {
+    this.offset = offset
+    this.len = len
+  }
+
+  readString() {
+    return new TextDecoder().decode(this.readBytes())
+  }
+
+  readBytes() {
+    return Memory._readBytes(this.offset)
+  }
+
+  readJsonObject() {
+    return JSON.parse(this.readString())
+  }
+}
+
 globalThis.TextDecoder = TextDecoder;
 globalThis.TextEncoder = TextEncoder;
+globalThis.MemoryHandle = MemoryHandle;
+
+Memory.fromString = (str) => {
+  // todo validate
+  let bytes = new TextEncoder().encode(str).buffer
+  const memData = Memory._fromBuffer(bytes)
+  return new MemoryHandle(memData.offset, memData.len)
+}
+
+Memory.fromBuffer = (bytes) => {
+  // todo validate
+  const memData = Memory._fromBuffer(bytes)
+  return new MemoryHandle(memData.offset, memData.len)
+}
+
+Memory.fromJsonObject = (obj) => {
+  // todo validate
+  const memData = Memory.fromString(JSON.stringify(obj))
+  return new MemoryHandle(memData.offset, memData.len)
+}
+
+Memory.find = (offset) => {
+  // todo validate
+  const memData = Memory._find(offset)
+  return new MemoryHandle(memData.offset, memData.len)
+}
 
 Host.getFunctions = () => {
   const funcs = {}
