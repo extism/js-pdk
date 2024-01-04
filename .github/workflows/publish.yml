@@ -17,7 +17,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: default
-          toolchain: 1.66.1
+          toolchain: 1.73.0
           target: wasm32-wasi
           default: true
 
