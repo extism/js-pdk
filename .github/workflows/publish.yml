@@ -85,9 +85,9 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          target: ${{ matrix.target }}
           profile: default
-          toolchain: 1.66.1
+          toolchain: 1.73.0
+          target: ${{ matrix.target }}
           default: true
 
       - name: Install gnu gcc
