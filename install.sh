@@ -18,19 +18,27 @@ esac
 export TAG="v1.0.0-rc4"
 export BINARYEN_TAG="version_116"
 
-
 curl -L -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
-curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
 
 gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
 chmod +x /usr/local/bin/extism-js
 
-tar xvf "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
-mv "binaryen-$BINARYEN_TAG"/ binaryen/
-sudo mkdir /usr/local/binaryen
-sudo mv binaryen/bin/wasm* /usr/local/binaryen
+if ! which "wasm-merge" > /dev/null; then
+  echo "Installing wasm-merge..."
 
-for file in $(ls /usr/local/binaryen); do
-  sudo ln -s  /usr/local/binaryen/$file /usr/local/bin/$file
-done
+  # binaryen use arm64 instead where as extism-js uses aarch64 for release file naming
+  case "$ARCH" in
+    aarch64*)  ARCH="arm64" ;;
+  esac
+
+  curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
+  tar xf "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
+  mv "binaryen-$BINARYEN_TAG"/ binaryen/
+  sudo mkdir /usr/local/binaryen
+  sudo mv binaryen/bin/wasm-merge /usr/local/binaryen/wasm-merge
+  sudo ln -s /usr/local/binaryen/wasm-merge /usr/local/bin/wasm-merge
+
+else
+  echo "wasm-merge already installed"
+fi
