@@ -11,4 +11,4 @@ jobs:
     - name: Test Install Script
       run: |
         sh install.sh
-        extism-jz --version
+        extism-js --version
