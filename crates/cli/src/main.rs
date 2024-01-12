@@ -110,6 +110,11 @@ fn main() -> Result<()> {
         &import_shim_path,
     )?;
 
+    let output = Command::new("wasm-merge").arg("--version").output();
+    if let Err(_) = output {
+        bail!("Failed to execute wasm-merge. Please install binaryen and make sure wasm-merge is on your path: https://github.com/WebAssembly/binaryen");
+    }
+
     // Merge the export shim with the core module
     let mut command = Command::new("wasm-merge")
         .arg(&core_path)
