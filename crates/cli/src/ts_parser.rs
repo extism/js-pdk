@@ -71,7 +71,7 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
                                 let type_name = typ.as_str();
                                 if type_name != "I64" {
                                     return anyhow::anyhow!(
-                                        format!("invalid type in function `{vn}`, using `{type_name}`. Interface `user` must only declare functions with type `I64`")
+                                        format!("Invalid type in function `{}`, using `{}`. Interface `user` must only declare functions with type `I64`", vn, type_name)
                                     );
                                 }
 
