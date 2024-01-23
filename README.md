@@ -233,7 +233,7 @@ declare module 'main' {
 declare module 'extism:host' {
   interface user {
     myHostFunction1(ptr: I64): I64;
-    myHostFunction2(ptr: i64): i64;
+    myHostFunction2(ptr: i64): I64;
   }
 }
 ```
