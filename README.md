@@ -233,7 +233,7 @@ declare module 'main' {
 declare module 'extism:host' {
   interface user {
     myHostFunction1(ptr: I64): I64;
-    myHostFunction2(ptr: i64): I64;
+    myHostFunction2(ptr: I64): I64;
   }
 }
 ```
@@ -246,7 +246,7 @@ To use these you need to use `Host.getFunctions()`:
 const { myHostFunction1, myHostFunction2 } = Host.getFunctions()
 ```
 
-Calling them is a similar process to other PDKs. You need to manage the memory with the Memory object and pass across an offset as the i64 ptr. Using the return value means dereferencing the returned i64 ptr from Memory.
+Calling them is a similar process to other PDKs. You need to manage the memory with the Memory object and pass across an offset as the `I64` ptr. Using the return value means dereferencing the returned `I64` ptr from Memory.
 
 ```typescript
 function greet() {
@@ -272,7 +272,7 @@ function greet() {
 module.exports = { greet }
 ```
 
-**IMPORTANT:** Currently, a limitation in the js-pdk is that host functions must have 1 `i64` pointer param and 1 `i64` pointer result. We enforce this through validation of the typescript interface file.
+**IMPORTANT:** Currently, a limitation in the js-pdk is that host functions must have 1 `I64` pointer param and 1 `I64` pointer result. We enforce this through validation of the typescript interface file.
 
 
 ## Using with a bundler
