@@ -68,6 +68,11 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Option<Interface>> {
                                     .as_ident()
                                     .unwrap()
                                     .sym;
+                                let type_name = typ.as_str();
+                                if type_name != "I64" {
+                                    panic!("Invalid type in function `{}`, using `{}`. Interface `user` must only declare functions with type `I64`", vn, type_name);
+                                }
+
                                 Param::new(vn, typ)
                             })
                             .collect::<Vec<Param>>();

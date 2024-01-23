@@ -1,6 +1,6 @@
 # Extism JavaScript PDK
 ![GitHub License](https://img.shields.io/github/license/extism/extism)
-![GitHub release (with filter)](https://img.shields.io/github/v/release/extism/extism)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/extism/js-pdk)
 
 This project contains a tool that can be used to create [Extism Plug-ins](https://extism.org/docs/concepts/plug-in) in JavaScript.
 
@@ -223,7 +223,57 @@ module.exports = { callHttp }
 
 ### Host Functions
 
-We don't yet support host functions. If you are interested in this please weigh in here: https://github.com/extism/js-pdk/issues/20
+Until the js-pdk hits 1.0, we may make changes to this API. To use host functions you need to declare a TypeScript interface `extism:host/user`:
+
+```typescript
+declare module 'main' {
+  export function greet(): I32;
+}
+
+declare module 'extism:host' {
+  interface user {
+    myHostFunction1(ptr: I64): I64;
+    myHostFunction2(ptr: I64): I64;
+  }
+}
+```
+
+**Note:** These need to have this signature `(I64): I64` for now. We will work on making different function arities work next.
+
+To use these you need to use `Host.getFunctions()`:
+
+```typescript
+const { myHostFunction1, myHostFunction2 } = Host.getFunctions()
+```
+
+Calling them is a similar process to other PDKs. You need to manage the memory with the Memory object and pass across an offset as the `I64` ptr. Using the return value means dereferencing the returned `I64` ptr from Memory.
+
+```typescript
+function greet() {
+  let msg = "Hello from js 1"
+  let mem = Memory.fromString(msg)
+  let offset = myHostFunction1(mem.offset)
+  let response = Memory.find(offset).readString()
+  if (response != "myHostFunction1: " + msg) {
+    throw Error(`wrong message came back from myHostFunction1: ${response}`)
+  }
+
+  msg = { hello: "world!" }
+  mem = Memory.fromJsonObject(msg)
+  offset = myHostFunction2(mem.offset)
+  response = Memory.find(offset).readJsonObject()
+  if (response.hello != "myHostFunction2") {
+    throw Error(`wrong message came back from myHostFunction2: ${response}`)
+  }
+
+  Host.outputString(`Hello, World!`)
+}
+
+module.exports = { greet }
+```
+
+**IMPORTANT:** Currently, a limitation in the js-pdk is that host functions must have 1 `I64` pointer param and 1 `I64` pointer result. We enforce this through validation of the typescript interface file.
+
 
 ## Using with a bundler
 
