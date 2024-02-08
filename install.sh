@@ -31,6 +31,12 @@ if ! which "wasm-merge" > /dev/null; then
     aarch64*)  ARCH="arm64" ;;
   esac
 
+  # matches the case where the user installs extism-pdk in a Linux-based Docker image running on mac m1
+  # binaryen didn't have arm64 release file for linux 
+  if [ $ARCH = "arm64" ] && [ $OS = "linux" ]; then
+    ARCH="x86_64"
+  fi
+
   curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
   tar xf "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
   mv "binaryen-$BINARYEN_TAG"/ binaryen/
