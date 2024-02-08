@@ -37,8 +37,6 @@ if ! which "wasm-merge" > /dev/null; then
     ARCH="x86_64"
   fi
 
-  echo "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
-
   curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
   tar xf "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
   mv "binaryen-$BINARYEN_TAG"/ binaryen/
