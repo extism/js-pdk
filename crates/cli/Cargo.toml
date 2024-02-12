@@ -21,6 +21,7 @@ swc_ecma_ast = "0.112"
 swc_ecma_parser = "0.143"
 wasm-encoder = "0.41.2"
 wasmparser = "0.121.2"
+wagen = {git = "https://github.com/dylibso/wagen"}
 log = "0.4.20"
 tempfile = "3.8.1"
 env_logger = "0.11"

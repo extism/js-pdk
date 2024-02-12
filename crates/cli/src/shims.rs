@@ -1,192 +1,97 @@
-extern crate swc_common;
-extern crate swc_ecma_parser;
 use anyhow::Result;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::PathBuf;
-
-use wasm_encoder::{
-    CodeSection, ConstExpr, ElementSection, Elements, EntityType, ExportKind, ExportSection,
-    Function, FunctionSection, HeapType, Instruction, TableSection, TableType, TypeSection,
-    ValType,
-};
-use wasm_encoder::{ImportSection, Module as WasmModule};
+use std::{collections::HashMap, path::Path};
 
 use crate::ts_parser::Interface;
+use wagen::{Instr, ValType};
 
 /// Generates the wasm shim for the exports
 pub fn generate_wasm_shims(
-    exports: Interface,
-    export_path: &PathBuf,
-    imports: Interface,
-    import_path: &PathBuf,
+    path: impl AsRef<Path>,
+    exports: &Interface,
+    imports: &[Interface],
 ) -> Result<()> {
-    let mut export_mod = WasmModule::new();
+    let mut module = wagen::Module::new();
 
-    // Note: the order in which you set the sections
-    // with `export_mod.section()` is important
+    let mut functions = HashMap::new();
+    let __arg_start = module.import("core", "__arg_start", None, [], []);
+    let __arg_i32 = module.import("core", "__arg_i32", None, [ValType::I32], []);
+    let __arg_i64 = module.import("core", "__arg_i64", None, [ValType::I64], []);
+    let __arg_f32 = module.import("core", "__arg_f32", None, [ValType::F32], []);
+    let __arg_f64 = module.import("core", "__arg_f64", None, [ValType::F64], []);
+    let __invoke_i32 = module.import("core", "__invoke_i32", None, [ValType::I32], [ValType::I32]);
+    let __invoke_i64 = module.import("core", "__invoke_i64", None, [ValType::I32], [ValType::I64]);
+    let __invoke_f32 = module.import("core", "__invoke_f32", None, [ValType::I32], [ValType::F32]);
+    let __invoke_f64 = module.import("core", "__invoke_f64", None, [ValType::I32], [ValType::F64]);
+    let __invoke = module.import("core", "__invoke", None, [ValType::I32], []);
 
-    // Encode the type section.
-    let mut types = TypeSection::new();
-    // __invoke's type
-    let params = vec![ValType::I32];
-    let results = vec![ValType::I32];
-    types.function(params, results);
-    // Extism Export type
-    let params = vec![];
-    let results = vec![ValType::I32];
-    types.function(params, results);
-    export_mod.section(&types);
-
-    //Encode the import section
-    let mut import_sec = ImportSection::new();
-    import_sec.import("coremod", "__invoke", EntityType::Function(0));
-    export_mod.section(&import_sec);
-
-    // Encode the function section.
-    let mut functions = FunctionSection::new();
-
-    // we will have 1 thunk function per export
-    let type_index = 1; // these are exports () -> i32
-    for _ in exports.functions.iter() {
-        functions.function(type_index);
-    }
-    export_mod.section(&functions);
-
-    let mut func_index = 1;
-
-    // Encode the export section.
-    let mut export_sec = ExportSection::new();
-    // we need to sort them alphabetically because that is
-    // how the runtime maps indexes
-    let mut export_functions = exports.functions.clone();
-    export_functions.sort_by(|a, b| a.name.cmp(&b.name));
-    for i in export_functions.iter() {
-        export_sec.export(i.name.as_str(), ExportKind::Func, func_index);
-        func_index += 1;
-    }
-    export_mod.section(&export_sec);
-
-    // Encode the code section.
-    let mut codes = CodeSection::new();
-    let mut export_idx: i32 = 0;
-
-    // create a single thunk per export
-    for _ in exports.functions.iter() {
-        let locals = vec![];
-        let mut f = Function::new(locals);
-        // we will essentially call the eval function (__invoke)
-        f.instruction(&Instruction::I32Const(export_idx));
-        f.instruction(&Instruction::Call(0));
-        f.instruction(&Instruction::End);
-        codes.function(&f);
-        export_idx += 1;
-    }
-    export_mod.section(&codes);
-
-    // Extract the encoded Wasm bytes for this module.
-    let wasm_bytes = export_mod.finish();
-    let mut file = File::create(export_path)?;
-    file.write_all(wasm_bytes.as_ref())?;
-
-    // Now do the imports
-    let mut import_mod = WasmModule::new();
-
-    // Encode the type section.
-    let mut types = TypeSection::new();
-
-    // for all other host funcs (TODO fix)
-    if !imports.functions.is_empty() {
-        let params = vec![ValType::I64];
-        let results = vec![ValType::I64];
-        types.function(params, results);
+    for import in imports.iter() {
+        for f in import.functions.iter() {
+            let params: Vec<_> = f.params.iter().map(|x| x.ptype).collect();
+            let results: Vec<_> = f.results.iter().map(|x| x.ptype).collect();
+            let index = module.import(&import.name, &f.name, None, params, results);
+            functions.insert(f.name.as_str(), index.index());
+        }
     }
 
-    // for __invokeHostFunc
-    let params = vec![ValType::I32, ValType::I64];
-    let results = vec![ValType::I64];
-    types.function(params, results);
-    import_mod.section(&types);
-
-    // Encode the import section
-    if !imports.functions.is_empty() {
-        let mut import_sec = ImportSection::new();
-
-        for i in imports.functions.iter() {
-            import_sec.import(
-                "extism:host/user",
-                i.name.as_str(),
-                wasm_encoder::EntityType::Function(0),
+    for (idx, export) in exports.functions.iter().enumerate() {
+        let params: Vec<_> = export.params.iter().map(|x| x.ptype).collect();
+        let results: Vec<_> = export.results.iter().map(|x| x.ptype).collect();
+        if results.len() > 1 {
+            anyhow::bail!(
+                "Multiple return arguments are not currently supported but used in exported function {}",
+                export.name
             );
         }
-        import_mod.section(&import_sec);
+        let func = module
+            .func(&export.name, params.clone(), results.clone(), [])
+            .export(&export.name);
+        let builder = func.builder();
+        builder.push(Instr::Call(__arg_start.index()));
+        for (parami, param) in params.into_iter().enumerate() {
+            builder.push(Instr::LocalGet(parami as u32));
+
+            match param {
+                ValType::I32 => {
+                    builder.push(Instr::Call(__arg_i32.index()));
+                }
+                ValType::I64 => {
+                    builder.push(Instr::Call(__arg_i64.index()));
+                }
+                ValType::F32 => {
+                    builder.push(Instr::Call(__arg_f32.index()));
+                }
+                ValType::F64 => {
+                    builder.push(Instr::Call(__arg_f64.index()));
+                }
+                r => {
+                    anyhow::bail!("Unsupported param type: {:?}", r);
+                }
+            }
+        }
+
+        builder.push(Instr::I32Const(idx as i32));
+        match results.first() {
+            None => {
+                builder.push(Instr::Call(__invoke.index()));
+            }
+            Some(ValType::I32) => {
+                builder.push(Instr::Call(__invoke_i32.index()));
+            }
+            Some(ValType::I64) => {
+                builder.push(Instr::Call(__invoke_i64.index()));
+            }
+            Some(ValType::F32) => {
+                builder.push(Instr::Call(__invoke_f32.index()));
+            }
+            Some(ValType::F64) => {
+                builder.push(Instr::Call(__invoke_f64.index()));
+            }
+            Some(r) => {
+                anyhow::bail!("Unsupported result type: {:?}", r);
+            }
+        }
     }
 
-    // Encode the function section.
-    let func_type = if imports.functions.is_empty() { 0 } else { 1 };
-    let mut functions = FunctionSection::new();
-    functions.function(func_type);
-    import_mod.section(&functions);
-
-    if !imports.functions.is_empty() {
-        // encode tables pointing to imports
-        let mut tables = TableSection::new();
-        let table_type = TableType {
-            element_type: wasm_encoder::RefType {
-                nullable: true,
-                heap_type: HeapType::Func,
-            },
-            minimum: imports.functions.len() as u32,
-            maximum: None,
-        };
-        tables.table(table_type);
-        import_mod.section(&tables);
-    }
-
-    // Encode the export section.
-    let mut export_sec = ExportSection::new();
-    export_sec.export(
-        "__invokeHostFunc",
-        ExportKind::Func,
-        imports.functions.len() as u32, // will be the last function
-    );
-    import_mod.section(&export_sec);
-
-    if !imports.functions.is_empty() {
-        // Encode the element section.
-        let mut elements = ElementSection::new();
-        let func_elems = Elements::Functions(&[0, 1]);
-        let offset = ConstExpr::i32_const(0);
-        elements.active(None, &offset, func_elems);
-        import_mod.section(&elements);
-    }
-
-    // Encode the code section.
-    let mut codes = CodeSection::new();
-    let locals = vec![];
-    let mut f = Function::new(locals);
-    if imports.functions.is_empty() {
-        // make it a no-op
-        f.instruction(&Instruction::LocalGet(1));
-        f.instruction(&Instruction::LocalGet(0));
-        f.instruction(&Instruction::Drop);
-        f.instruction(&Instruction::Drop);
-        f.instruction(&Instruction::I64Const(-1));
-        f.instruction(&Instruction::End);
-    } else {
-        // we will essentially call the eval function
-        // in the core module here, similar to https://github.com/extism/js-pdk/blob/eaf17366624d48219cbd97a51e85569cffd12086/crates/cli/src/main.rs#L118
-        f.instruction(&Instruction::LocalGet(1));
-        f.instruction(&Instruction::LocalGet(0));
-        f.instruction(&Instruction::CallIndirect { ty: 0, table: 0 });
-        f.instruction(&Instruction::End);
-    }
-    codes.function(&f);
-    import_mod.section(&codes);
-
-    let wasm_bytes = import_mod.finish();
-    let mut file = File::create(import_path)?;
-    file.write_all(wasm_bytes.as_ref())?;
-
+    module.validate_save(path.as_ref())?;
     Ok(())
 }

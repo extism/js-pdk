@@ -5,16 +5,10 @@ use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 
-#[link(wasm_import_module = "codemod")]
-extern "C" {
-    // this import will get satisified by the import shim
-    fn __invokeHostFunc(func_idx: u32, ptr: u64) -> u64;
-}
-
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
-    let module = build_module_ojbect(&context)?;
+    let module = build_module_object(&context)?;
     let console = build_console_object(&context)?;
     let host = build_host_object(&context)?;
     let var = build_var_object(&context)?;
@@ -45,6 +39,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
 
     Ok(())
 }
+
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let console_log_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
@@ -79,7 +74,7 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     Ok(console_object)
 }
 
-fn build_module_ojbect(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
+fn build_module_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let exports = context.object_value()?;
     let module_obj = context.object_value()?;
     module_obj.set_property("exports", exports)?;
@@ -118,7 +113,8 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let func_id = args.get(0).unwrap().as_i32_unchecked();
             let ptr = args.get(1).unwrap().as_u32_unchecked();
-            let result = unsafe { __invokeHostFunc(func_id as u32, ptr as u64) };
+            crate::__arg_i64(ptr as i64);
+            let result = crate::__invoke_i64(func_id); //unsafe { __invokeHostFunc(func_id as u32, ptr as u64) };
             Ok(JSValue::Int(result as i32))
         },
     )?;

@@ -2,7 +2,7 @@ from extism import host_fn, Plugin, set_log_file
 import sys
 import json
 
-set_log_file("stdout", level='info')
+set_log_file("stdout", level='trace')
 
 @host_fn()
 def myHostFunction1(input: str) -> str:

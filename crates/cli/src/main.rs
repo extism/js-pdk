@@ -54,31 +54,24 @@ fn main() -> Result<()> {
     input_file.read_to_end(&mut user_code)?;
 
     // If we have imports, we need to inject some state needed for host function support
-    let names = &plugin_interface
-        .imports
-        .functions
-        .iter()
-        .map(|s| format!("'{}'", &s.name))
-        .collect::<Vec<String>>()
-        .join(",");
-    let mut contents = format!("Host.__hostFunctions = [{}].sort();\n", names)
-        .as_bytes()
-        .to_owned();
+    let mut contents = Vec::new();
+    for ns in &plugin_interface.imports {
+        let names = &ns
+            .functions
+            .iter()
+            .map(|s| format!("'{}'", &s.name))
+            .collect::<Vec<String>>()
+            .join(",");
+        contents
+            .extend_from_slice(format!("Host.__hostFunctions = [{}].sort();\n", names).as_bytes());
+    }
     contents.append(&mut user_code);
 
     // Create a tmp dir to hold all the library objects
     // This can go away once we do all the wasm-merge stuff in process
     let tmp_dir = TempDir::new()?;
     let core_path = tmp_dir.path().join("core.wasm");
-    let export_shim_path = tmp_dir.path().join("export-shim.wasm");
-    let import_shim_path = tmp_dir.path().join("import-shim.wasm");
-    let linked_shim_path = tmp_dir.path().join("linked.wasm");
-
-    // let tmp_dir = "/tmp/derp";
-    // let core_path = PathBuf::from("/tmp/derp/core.wasm");
-    // let export_shim_path = PathBuf::from("/tmp/derp/export-shim.wasm");
-    // let import_shim_path = PathBuf::from("/tmp/derp/import-shim.wasm");
-    // let linked_shim_path = PathBuf::from("/tmp/derp/linked.wasm");
+    let shim_path = tmp_dir.path().join("shim.wasm");
 
     // First wizen the core module
     let self_cmd = env::args().next().expect("Expected a command argument");
@@ -101,13 +94,11 @@ fn main() -> Result<()> {
         }
     }
 
-    // Create our shim files given our parsed TS module object
-    // We have a shim file for exports and one optional one for imports
+    // Create our shim file given our parsed TS module object
     generate_wasm_shims(
-        plugin_interface.exports,
-        &export_shim_path,
-        plugin_interface.imports,
-        &import_shim_path,
+        &shim_path,
+        &plugin_interface.exports,
+        &plugin_interface.imports,
     )?;
 
     let output = Command::new("wasm-merge").arg("--version").output();
@@ -115,26 +106,12 @@ fn main() -> Result<()> {
         bail!("Failed to execute wasm-merge. Please install binaryen and make sure wasm-merge is on your path: https://github.com/WebAssembly/binaryen");
     }
 
-    // Merge the export shim with the core module
+    // Merge the shim with the core module
     let mut command = Command::new("wasm-merge")
         .arg(&core_path)
-        .arg("coremod")
-        .arg(&export_shim_path)
-        .arg("codemod")
-        .arg("-o")
-        .arg(&linked_shim_path)
-        .spawn()?;
-    let status = command.wait()?;
-    if !status.success() {
-        bail!("wasm-merge failed. Couldn't merge export shim");
-    }
-
-    // Merge the import shim with the core+export (linked) module
-    let mut command = Command::new("wasm-merge")
-        .arg(&linked_shim_path)
-        .arg("coremod")
-        .arg(&import_shim_path)
-        .arg("codemod")
+        .arg("core")
+        .arg(&shim_path)
+        .arg("shim")
         .arg("-o")
         .arg(&opts.output)
         .arg("--enable-reference-types")
@@ -142,7 +119,7 @@ fn main() -> Result<()> {
         .spawn()?;
     let status = command.wait()?;
     if !status.success() {
-        bail!("wasm-merge failed. Couldn't merge import shim.");
+        bail!("wasm-merge failed. Couldn't merge shim");
     }
 
     Ok(())
