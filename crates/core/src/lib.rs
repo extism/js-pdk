@@ -78,22 +78,6 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(idx: i32, conv: F
     conv(&context, r)
 }
 
-// #[no_mangle]
-// pub fn __invokeHostFunc(idx: i32, i: u64) -> u64 {
-//     let call_args = unsafe { CALL_ARGS.pop() };
-//     let context = js_context();
-//     let args: Vec<_> = call_args
-//         .unwrap()
-//         .iter()
-//         .map(|x| convert_js_value(context, x))
-//         .collect();
-//     let globals = context.global_object().unwrap();
-//     let names = export_names(&context).unwrap();
-//     let f = globals.get_property(names[idx as usize].as_str()).unwrap();
-
-//     let r = f.call(&context.undefined_value().unwrap(), &args).unwrap();
-// }
-
 #[no_mangle]
 pub extern "C" fn __arg_start() {
     unsafe {

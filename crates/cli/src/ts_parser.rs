@@ -111,7 +111,7 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Interface> {
                     let vn = p.as_ident().unwrap().id.sym.as_str();
                     let typ = p.as_ident().unwrap().type_ann.clone();
                     let t = typ.unwrap().type_ann;
-                    param_type(&mut params, &vn, &t)?;
+                    param_type(&mut params, vn, &t)?;
                 }
                 if let Some(return_type) = &t.type_ann {
                     result_type(&mut results, &return_type.type_ann)?;
@@ -212,11 +212,7 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
     let mut interfaces = Vec::new();
     for statement in &module.body {
         if let ModuleItem::Stmt(Stmt::Decl(Decl::TsModule(submod))) = statement {
-            let name = if let Some(name) = submod.id.as_str() {
-                Some(name.value.as_str())
-            } else {
-                None
-            };
+            let name = submod.id.as_str().map(|name| name.value.as_str());
 
             match name {
                 Some("main") | None => {
@@ -237,7 +233,7 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
 /// Parse the d.ts file representing the plugin interface
 pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface> {
     let cm: Lrc<SourceMap> = Default::default();
-    let fm = cm.load_file(&interface_path)?;
+    let fm = cm.load_file(interface_path)?;
     let lexer = Lexer::new(
         Syntax::Typescript(Default::default()),
         Default::default(),

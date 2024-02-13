@@ -1,6 +1,8 @@
-use anyhow::{bail, Error, Result};
-use binaryen::{CodegenConfig, Module};
-use std::path::Path;
+use anyhow::{Error, Result};
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+};
 use wizer::Wizer;
 
 pub(crate) struct Optimizer<'a> {
@@ -21,31 +23,30 @@ impl<'a> Optimizer<'a> {
     }
 
     pub fn write_optimized_wasm(self, dest: impl AsRef<Path>) -> Result<(), Error> {
-        let mut wasm = Wizer::new()
+        let wasm = Wizer::new()
             .allow_wasi(true)?
             .inherit_stdio(true)
             .wasm_bulk_memory(true)
             .run(self.wasm)?;
 
+        std::fs::write(&dest, &wasm)?;
+
         if self.optimize {
-            let codegen_cfg = CodegenConfig {
-                optimization_level: 3, // Aggressively optimize for speed.
-                shrink_level: 0,       // Don't optimize for size at the expense of performance.
-                debug_info: false,
-            };
-
-            if let Ok(mut module) = Module::read(&wasm) {
-                module.optimize(&codegen_cfg);
-                module
-                    .run_optimization_passes(vec!["strip"], &codegen_cfg)
-                    .unwrap();
-                wasm = module.write();
-            } else {
-                bail!("Unable to read wasm binary for wasm-opt optimizations");
+            let output = Command::new("wasm-opt")
+                .arg("--version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+            if output.is_err() {
+                anyhow::bail!("Failed to detect wasm-opt. Please install binaryen and make sure wasm-opt is on your path: https://github.com/WebAssembly/binaryen");
             }
+            Command::new("wasm-opt")
+                .arg("-O3")
+                .arg(dest.as_ref())
+                .arg("-o")
+                .arg(dest.as_ref())
+                .status()?;
         }
-
-        std::fs::write(dest.as_ref(), wasm)?;
 
         Ok(())
     }

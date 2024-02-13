@@ -6,35 +6,29 @@ mod ts_parser;
 use crate::options::Options;
 use crate::ts_parser::parse_interface_file;
 use anyhow::{bail, Result};
-use env_logger::{Builder, Target};
 use log::LevelFilter;
 use shims::generate_wasm_shims;
 use std::env;
-use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::{fs, process::Command};
+use std::{fs, io::Write, process::Command};
 use structopt::StructOpt;
 use tempfile::TempDir;
 
+const CORE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine.wasm"));
+
 fn main() -> Result<()> {
-    let mut builder = Builder::new();
+    let mut builder = env_logger::Builder::new();
     builder
         .filter(None, LevelFilter::Info)
-        .target(Target::Stdout)
+        .target(env_logger::Target::Stdout)
         .init();
 
     let opts = Options::from_args();
-    let wizen = env::var("EXTISM_WIZEN");
-
-    if wizen.eq(&Ok("1".into())) {
-        let wasm: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine.wasm"));
-        opt::Optimizer::new(wasm)
+    if opts.core {
+        opt::Optimizer::new(CORE)
             .optimize(true)
             .write_optimized_wasm(opts.output)?;
-
-        env::remove_var("EXTISM_WIZEN");
-
         return Ok(());
     }
 
@@ -48,10 +42,8 @@ fn main() -> Result<()> {
     }
     let plugin_interface = parse_interface_file(&interface_path)?;
 
-    // Copy in the user's js code from stdin
-    let mut input_file = fs::File::open(&opts.input_js)?;
-    let mut user_code: Vec<u8> = vec![];
-    input_file.read_to_end(&mut user_code)?;
+    // Copy in the user's js code from the configured file
+    let mut user_code = fs::read(&opts.input_js)?;
 
     // If we have imports, we need to inject some state needed for host function support
     let mut contents = Vec::new();
@@ -76,12 +68,11 @@ fn main() -> Result<()> {
     let core_path = tmp_dir.path().join("core.wasm");
     let shim_path = tmp_dir.path().join("shim.wasm");
 
-    // std::fs::copy(concat!(env!("OUT_DIR"), "/engine.wasm"), &core_path)?;
     // First wizen the core module
     let self_cmd = env::args().next().expect("Expected a command argument");
     {
-        env::set_var("EXTISM_WIZEN", "1");
         let mut command = Command::new(self_cmd)
+            .arg("-c")
             .arg(&opts.input_js)
             .arg("-o")
             .arg(&core_path)
@@ -105,13 +96,17 @@ fn main() -> Result<()> {
         &plugin_interface.imports,
     )?;
 
-    let output = Command::new("wasm-merge").arg("--version").output();
-    if let Err(_) = output {
-        bail!("Failed to execute wasm-merge. Please install binaryen and make sure wasm-merge is on your path: https://github.com/WebAssembly/binaryen");
+    let output = Command::new("wasm-merge")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    if output.is_err() {
+        bail!("Failed to detect wasm-merge. Please install binaryen and make sure wasm-merge is on your path: https://github.com/WebAssembly/binaryen");
     }
 
     // Merge the shim with the core module
-    let mut command = Command::new("wasm-merge")
+    let status = Command::new("wasm-merge")
         .arg(&core_path)
         .arg("core")
         .arg(&shim_path)
@@ -120,8 +115,7 @@ fn main() -> Result<()> {
         .arg(&opts.output)
         .arg("--enable-reference-types")
         .arg("--enable-bulk-memory")
-        .spawn()?;
-    let status = command.wait()?;
+        .status()?;
     if !status.success() {
         bail!("wasm-merge failed. Couldn't merge shim");
     }

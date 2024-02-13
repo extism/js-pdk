@@ -12,4 +12,7 @@ pub struct Options {
 
     #[structopt(short = "o", parse(from_os_str), default_value = "index.wasm")]
     pub output: PathBuf,
+
+    #[structopt(short = "c")]
+    pub core: bool,
 }
