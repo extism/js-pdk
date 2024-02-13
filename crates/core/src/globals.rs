@@ -8,15 +8,15 @@ use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
-    let module = build_module_object(&context)?;
-    let console = build_console_object(&context)?;
-    let var = build_var_object(&context)?;
-    let http = build_http_object(&context)?;
-    let cfg = build_config_object(&context)?;
-    let decoder = build_decoder(&context)?;
-    let encoder = build_encoder(&context)?;
-    let mem = build_memory(&context)?;
-    let host = build_host_object(&context)?;
+    let module = build_module_object(context)?;
+    let console = build_console_object(context)?;
+    let var = build_var_object(context)?;
+    let http = build_http_object(context)?;
+    let cfg = build_config_object(context)?;
+    let decoder = build_decoder(context)?;
+    let encoder = build_encoder(context)?;
+    let mem = build_memory(context)?;
+    let host = build_host_object(context)?;
 
     let global = context.global_object()?;
     global.set_property("console", console)?;
@@ -56,7 +56,7 @@ extern "C" {
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let console_log_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             info!("{}", stmt);
             Ok(JSValue::Undefined)
@@ -64,7 +64,7 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let console_error_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             error!("{}", stmt);
             Ok(JSValue::Undefined)
@@ -72,7 +72,7 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let console_warn_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.get(0).ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             warn!("{}", stmt);
             Ok(JSValue::Undefined)
@@ -110,14 +110,14 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let host_output_bytes = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let output = args.get(0).unwrap();
+            let output = args.first().unwrap();
             extism_pdk::output(output.as_bytes()?)?;
             Ok(JSValue::Bool(true))
         },
     )?;
     let host_output_string = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let output = args.get(0).unwrap();
+            let output = args.first().unwrap();
             extism_pdk::output(output.as_str()?)?;
             Ok(JSValue::Bool(true))
         },
@@ -139,23 +139,23 @@ pub fn inject_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
     {
         let host_invoke_func = context.wrap_callback(
             |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-                let func_id = args.get(0).unwrap().as_u32_unchecked();
+                let func_id = args.first().unwrap().as_u32_unchecked();
                 let len = args.len() - 1;
                 match len {
                     0 => {
-                        let result = unsafe { __invokeHostFunc_0_1(func_id as u32) };
+                        let result = unsafe { __invokeHostFunc_0_1(func_id) };
                         Ok(JSValue::Float(result as f64))
                     }
                     1 => {
                         let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let result = unsafe { __invokeHostFunc_1_1(func_id as u32, ptr as u64) };
+                        let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
                         Ok(JSValue::Float(result as f64))
                     }
                     2 => {
                         let ptr = args.get(1).unwrap().as_u32_unchecked();
                         let ptr2 = args.get(2).unwrap().as_u32_unchecked();
                         let result = unsafe {
-                            __invokeHostFunc_2_1(func_id as u32, ptr as u64, ptr2 as u64)
+                            __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64)
                         };
                         Ok(JSValue::Float(result as f64))
                     }
@@ -165,20 +165,20 @@ pub fn inject_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
         )?;
         let host_invoke_func0 = context.wrap_callback(
             |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-                let func_id = args.get(0).unwrap().as_u32_unchecked();
+                let func_id = args.first().unwrap().as_u32_unchecked();
                 let len = args.len() - 1;
                 match len {
                     0 => {
-                        unsafe { __invokeHostFunc_0_0(func_id as u32) };
+                        unsafe { __invokeHostFunc_0_0(func_id) };
                     }
                     1 => {
                         let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        unsafe { __invokeHostFunc_1_0(func_id as u32, ptr as u64) };
+                        unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
                     }
                     2 => {
                         let ptr = args.get(1).unwrap().as_u32_unchecked();
                         let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        unsafe { __invokeHostFunc_2_0(func_id as u32, ptr as u64, ptr2 as u64) };
+                        unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
                     }
                     n => anyhow::bail!("__invokeHostFunc0 with {n} parameters is not implemented"),
                 }
@@ -198,7 +198,7 @@ pub fn inject_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
 fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let var_set = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
             let data = args.get(1).ok_or(anyhow!("Expected data argument"))?;
 
             if data.is_str() {
@@ -212,7 +212,7 @@ fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let var_get = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
             let data = var::get::<Vec<u8>>(var_name.as_str()?)?;
             match data {
                 Some(d) => Ok(JSValue::ArrayBuffer(d)),
@@ -223,7 +223,7 @@ fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
     let var_get_str = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.get(0).ok_or(anyhow!("Expected var_name argument"))?;
+            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
             let data = var::get::<String>(var_name.as_str()?)?;
             match data {
                 Some(d) => Ok(JSValue::String(d)),
@@ -243,8 +243,7 @@ fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let http_req = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let req = args
-                .get(0)
+            let req = args.first()
                 .ok_or(anyhow!("Expected http request argument"))?;
 
             if !req.is_object() {
@@ -315,7 +314,7 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let config_get = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let key = args.get(0).ok_or(anyhow!("Expected key argument"))?;
+            let key = args.first().ok_or(anyhow!("Expected key argument"))?;
             if !key.is_str() {
                 bail!("Expected key to be a string");
             }
@@ -337,7 +336,7 @@ fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let memory_from_buffer = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let data = args.get(0).ok_or(anyhow!("Expected data argument"))?;
+            let data = args.first().ok_or(anyhow!("Expected data argument"))?;
             if !data.is_array_buffer() {
                 bail!("Expected data to be an array buffer");
             }
@@ -353,7 +352,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let memory_find = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.get(0).ok_or(anyhow!("Expected ptr argument"))?;
+            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
             if !ptr.is_number() {
                 bail!("Expected a pointer");
             }
@@ -369,7 +368,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let read_bytes = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.get(0).ok_or(anyhow!("Expected ptr argument"))?;
+            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
             if !ptr.is_number() {
                 bail!("Expected a pointer");
             }
@@ -389,11 +388,11 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 }
 
 fn build_decoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    Ok(context.wrap_callback(decode_utf8_buffer_to_js_string())?)
+    context.wrap_callback(decode_utf8_buffer_to_js_string())
 }
 
 fn build_encoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    Ok(context.wrap_callback(encode_js_string_to_utf8_buffer())?)
+    context.wrap_callback(encode_js_string_to_utf8_buffer())
 }
 
 fn decode_utf8_buffer_to_js_string(

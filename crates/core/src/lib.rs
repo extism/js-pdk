@@ -72,10 +72,10 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(idx: i32, conv: F
         .map(|x| convert_js_value(context, x))
         .collect();
     let globals = context.global_object().unwrap();
-    let names = export_names(&context).unwrap();
+    let names = export_names(context).unwrap();
     let f = globals.get_property(names[idx as usize].as_str()).unwrap();
     let r = f.call(&context.undefined_value().unwrap(), &args).unwrap();
-    conv(&context, r)
+    conv(context, r)
 }
 
 #[no_mangle]

@@ -1,7 +1,8 @@
 extern crate swc_common;
 extern crate swc_ecma_parser;
+use std::path::Path;
+
 use anyhow::{bail, Context, Result};
-use std::path::PathBuf;
 use wagen::ValType;
 
 use swc_common::sync::Lrc;
@@ -97,7 +98,7 @@ pub fn result_type(results: &mut Vec<Param>, return_type: &TsType) -> Result<()>
 }
 
 /// Parses the non-main parts of the module which maps to the wasm imports
-fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Interface> {
+fn parse_user_interface(i: &TsInterfaceDecl) -> Result<Interface> {
     let mut signatures = Vec::new();
     let name = i.id.sym.as_str();
     for sig in &i.body.body {
@@ -136,7 +137,7 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Interface> {
 }
 
 /// Try to parse the imports
-fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Result<Option<Interface>> {
+fn parse_imports(tsmod: &TsModuleDecl) -> Result<Option<Interface>> {
     for block in &tsmod.body {
         if let Some(block) = block.clone().ts_module_block() {
             for inter in block.body {
@@ -161,7 +162,7 @@ fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Result<Option<Interface>> {
 }
 
 /// Parses the main module declaration (the extism exports)
-fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
+fn parse_module_decl(tsmod: &TsModuleDecl) -> Result<Interface> {
     let mut signatures = Vec::new();
 
     for block in &tsmod.body {
@@ -231,9 +232,9 @@ fn parse_module(module: Module) -> Result<Vec<Interface>> {
 }
 
 /// Parse the d.ts file representing the plugin interface
-pub fn parse_interface_file(interface_path: &PathBuf) -> Result<PluginInterface> {
+pub fn parse_interface_file(interface_path: impl AsRef<Path>) -> Result<PluginInterface> {
     let cm: Lrc<SourceMap> = Default::default();
-    let fm = cm.load_file(interface_path)?;
+    let fm = cm.load_file(interface_path.as_ref())?;
     let lexer = Lexer::new(
         Syntax::Typescript(Default::default()),
         Default::default(),

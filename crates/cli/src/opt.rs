@@ -29,7 +29,7 @@ impl<'a> Optimizer<'a> {
             .wasm_bulk_memory(true)
             .run(self.wasm)?;
 
-        std::fs::write(&dest, &wasm)?;
+        std::fs::write(&dest, wasm)?;
 
         if self.optimize {
             let output = Command::new("wasm-opt")
