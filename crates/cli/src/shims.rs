@@ -52,25 +52,30 @@ pub fn generate_wasm_shims(
         import_elements.push(index.index());
     }
 
-    let indirect_type = module
-        .types()
-        .push(|t| t.function([ValType::I64], [ValType::I64]));
-
-    let invoke_host = module
-        .func(
-            "__invokeHostFunc",
-            [ValType::I32, ValType::I64],
-            [ValType::I64],
-            [],
-        )
-        .export("__invokeHostFunc");
-    let builder = invoke_host.builder();
-    builder.push(Instr::LocalGet(1));
-    builder.push(Instr::LocalGet(0));
-    builder.push(Instr::CallIndirect {
-        ty: indirect_type,
-        table: import_table,
-    });
+    for p in 0..=10 {
+        for q in 0..=1 {
+            let indirect_type = module
+                .types()
+                .push(|t| t.function(vec![ValType::I64; p], vec![ValType::I64; q]));
+            let name = format!("__invokeHostFunc_{p}_{q}");
+            let mut params = vec![ValType::I32];
+            for _ in 0..p {
+                params.push(ValType::I64);
+            }
+            let invoke_host = module
+                .func(&name, params, vec![ValType::I64; q], [])
+                .export(&name);
+            let builder = invoke_host.builder();
+            for i in 1..=p {
+                builder.push(Instr::LocalGet(i as u32));
+            }
+            builder.push(Instr::LocalGet(0));
+            builder.push(Instr::CallIndirect {
+                ty: indirect_type,
+                table: import_table,
+            });
+        }
+    }
     module.active_element(
         Some(import_table),
         wagen::Elements::Functions(&import_elements),
