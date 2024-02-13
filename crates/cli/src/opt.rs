@@ -41,6 +41,7 @@ impl<'a> Optimizer<'a> {
                 anyhow::bail!("Failed to detect wasm-opt. Please install binaryen and make sure wasm-opt is on your path: https://github.com/WebAssembly/binaryen");
             }
             Command::new("wasm-opt")
+                .arg("--strip")
                 .arg("-O3")
                 .arg(dest.as_ref())
                 .arg("-o")
