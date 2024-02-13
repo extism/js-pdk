@@ -52,7 +52,7 @@ pub fn generate_wasm_shims(
         import_elements.push(index.index());
     }
 
-    for p in 0..=10 {
+    for p in 0..=5 {
         for q in 0..=1 {
             let indirect_type = module
                 .types()
