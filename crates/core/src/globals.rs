@@ -40,6 +40,12 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[link(wasm_import_module = "shim")]
+extern "C" {
+    // this import will get satisified by the import shim
+    fn __invokeHostFunc(func_idx: u32, ptr: u64) -> u64;
+}
+
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let console_log_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
@@ -111,11 +117,10 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let host_invoke_func = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let func_id = args.get(0).unwrap().as_i32_unchecked();
+            let func_id = args.get(0).unwrap().as_u32_unchecked();
             let ptr = args.get(1).unwrap().as_u32_unchecked();
-            crate::__arg_i64(ptr as i64);
-            let result = crate::__invoke_i64(func_id); //unsafe { __invokeHostFunc(func_id as u32, ptr as u64) };
-            Ok(JSValue::Int(result as i32))
+            let result = unsafe { __invokeHostFunc(func_id as u32, ptr as u64) };
+            Ok(JSValue::Float(result as f64))
         },
     )?;
 

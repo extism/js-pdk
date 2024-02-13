@@ -55,16 +55,19 @@ fn main() -> Result<()> {
 
     // If we have imports, we need to inject some state needed for host function support
     let mut contents = Vec::new();
+    let mut names = Vec::new();
     for ns in &plugin_interface.imports {
-        let names = &ns
-            .functions
-            .iter()
-            .map(|s| format!("'{}'", &s.name))
-            .collect::<Vec<String>>()
-            .join(",");
-        contents
-            .extend_from_slice(format!("Host.__hostFunctions = [{}].sort();\n", names).as_bytes());
+        names.extend(
+            ns.functions
+                .iter()
+                .map(|s| format!("'{}'", &s.name))
+                .collect::<Vec<String>>(),
+        );
     }
+    names.sort();
+    contents.extend_from_slice(
+        format!("Host.__hostFunctions = [{}].sort();\n", names.join(", ")).as_bytes(),
+    );
     contents.append(&mut user_code);
 
     // Create a tmp dir to hold all the library objects

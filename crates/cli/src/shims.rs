@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use crate::ts_parser::Interface;
 use wagen::{Instr, ValType};
@@ -12,7 +12,6 @@ pub fn generate_wasm_shims(
 ) -> Result<()> {
     let mut module = wagen::Module::new();
 
-    let mut functions = HashMap::new();
     let __arg_start = module.import("core", "__arg_start", None, [], []);
     let __arg_i32 = module.import("core", "__arg_i32", None, [ValType::I32], []);
     let __arg_i64 = module.import("core", "__arg_i64", None, [ValType::I64], []);
@@ -24,14 +23,58 @@ pub fn generate_wasm_shims(
     let __invoke_f64 = module.import("core", "__invoke_f64", None, [ValType::I32], [ValType::F64]);
     let __invoke = module.import("core", "__invoke", None, [ValType::I32], []);
 
+    let mut n_imports = 0;
+    for import in imports.iter() {
+        for _ in import.functions.iter() {
+            n_imports += 1;
+        }
+    }
+
+    let import_table = module.tables().push(wagen::TableType {
+        element_type: wagen::RefType::FUNCREF,
+        minimum: n_imports,
+        maximum: None,
+    });
+
+    let mut import_elements = Vec::new();
+    let mut import_items = vec![];
     for import in imports.iter() {
         for f in import.functions.iter() {
             let params: Vec<_> = f.params.iter().map(|x| x.ptype).collect();
             let results: Vec<_> = f.results.iter().map(|x| x.ptype).collect();
             let index = module.import(&import.name, &f.name, None, params, results);
-            functions.insert(f.name.as_str(), index.index());
+            import_items.push((f.name.clone(), index));
         }
     }
+    import_items.sort_by_key(|x| x.0.to_string());
+
+    for (_f, index) in import_items {
+        import_elements.push(index.index());
+    }
+
+    let indirect_type = module
+        .types()
+        .push(|t| t.function([ValType::I64], [ValType::I64]));
+
+    let invoke_host = module
+        .func(
+            "__invokeHostFunc",
+            [ValType::I32, ValType::I64],
+            [ValType::I64],
+            [],
+        )
+        .export("__invokeHostFunc");
+    let builder = invoke_host.builder();
+    builder.push(Instr::LocalGet(1));
+    builder.push(Instr::LocalGet(0));
+    builder.push(Instr::CallIndirect {
+        ty: indirect_type,
+        table: import_table,
+    });
+    module.active_element(
+        Some(import_table),
+        wagen::Elements::Functions(&import_elements),
+    );
 
     for (idx, export) in exports.functions.iter().enumerate() {
         let params: Vec<_> = export.params.iter().map(|x| x.ptype).collect();

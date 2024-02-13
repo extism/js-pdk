@@ -77,6 +77,22 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(idx: i32, conv: F
     conv(&context, r)
 }
 
+// #[no_mangle]
+// pub fn __invokeHostFunc(idx: i32, i: u64) -> u64 {
+//     let call_args = unsafe { CALL_ARGS.pop() };
+//     let context = js_context();
+//     let args: Vec<_> = call_args
+//         .unwrap()
+//         .iter()
+//         .map(|x| convert_js_value(context, x))
+//         .collect();
+//     let globals = context.global_object().unwrap();
+//     let names = export_names(&context).unwrap();
+//     let f = globals.get_property(names[idx as usize].as_str()).unwrap();
+
+//     let r = f.call(&context.undefined_value().unwrap(), &args).unwrap();
+// }
+
 #[no_mangle]
 pub extern "C" fn __arg_start() {
     unsafe {
@@ -144,21 +160,6 @@ pub extern "C" fn __invoke(idx: i32) {
 }
 
 fn export_names(context: &JSContextRef) -> anyhow::Result<Vec<String>> {
-    let global = context.global_object().unwrap();
-    let module = global.get_property("module")?;
-    let exports = module.get_property("exports")?;
-    let mut properties = exports.properties()?;
-    let mut key = properties.next_key()?;
-    let mut keys: Vec<String> = vec![];
-    while key.is_some() {
-        keys.push(key.unwrap().as_str()?.to_string());
-        key = properties.next_key()?;
-    }
-    keys.sort();
-    Ok(keys)
-}
-
-fn import_names(context: &JSContextRef) -> anyhow::Result<Vec<String>> {
     let global = context.global_object().unwrap();
     let module = global.get_property("module")?;
     let exports = module.get_property("exports")?;

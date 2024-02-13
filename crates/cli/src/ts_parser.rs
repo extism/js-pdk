@@ -2,7 +2,7 @@ extern crate swc_common;
 extern crate swc_ecma_parser;
 use anyhow::{bail, Context, Result};
 use std::path::PathBuf;
-use wasm_encoder::ValType;
+use wagen::ValType;
 
 use swc_common::sync::Lrc;
 use swc_common::SourceMap;
@@ -13,11 +13,11 @@ use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 #[derive(Debug, Clone)]
 pub struct Param {
     pub name: String,
-    pub ptype: wasm_encoder::ValType,
+    pub ptype: ValType,
 }
 
 impl Param {
-    pub fn new(name: &str, ptype: wasm_encoder::ValType) -> Param {
+    pub fn new(name: &str, ptype: ValType) -> Param {
         Param {
             name: name.to_string(),
             ptype,
@@ -116,7 +116,12 @@ fn parse_imports(tsmod: &Box<TsModuleDecl>) -> Result<Option<Interface>> {
             for inter in block.body {
                 if let ModuleItem::Stmt(Stmt::Decl(decl)) = inter {
                     let i = decl.as_ts_interface().unwrap();
-                    let interface = parse_user_interface(i)?;
+                    let mut interface = parse_user_interface(i)?;
+                    if tsmod.id.clone().str().is_some() {
+                        interface.name = tsmod.id.clone().expect_str().value.as_str().to_string()
+                            + "/"
+                            + i.id.sym.as_str();
+                    }
                     return Ok(Some(interface));
                 } else {
                     log::warn!("Not a module decl");
