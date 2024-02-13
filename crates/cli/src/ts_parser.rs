@@ -6,7 +6,9 @@ use wagen::ValType;
 
 use swc_common::sync::Lrc;
 use swc_common::SourceMap;
-use swc_ecma_ast::{Decl, Module, ModuleDecl, Stmt, TsInterfaceDecl, TsModuleDecl};
+use swc_ecma_ast::{
+    Decl, Module, ModuleDecl, Stmt, TsInterfaceDecl, TsKeywordTypeKind, TsModuleDecl, TsType,
+};
 use swc_ecma_ast::{ModuleItem, TsTypeElement};
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 
@@ -54,6 +56,46 @@ pub fn val_type(s: &str) -> ValType {
     }
 }
 
+pub fn param_type(params: &mut Vec<Param>, vn: &str, t: &TsType) -> Result<()> {
+    let typ = if let Some(t) = t.as_ts_type_ref() {
+        t.type_name
+            .as_ident()
+            .context("Illegal param type")?
+            .sym
+            .as_str()
+    } else {
+        "i64"
+    };
+    params.push(Param::new(vn, val_type(typ)));
+    Ok(())
+}
+
+pub fn result_type(results: &mut Vec<Param>, return_type: &TsType) -> Result<()> {
+    let return_type = if let Some(return_type) = return_type.as_ts_type_ref() {
+        Some(
+            return_type
+                .type_name
+                .as_ident()
+                .context("Illegal return type")?
+                .sym
+                .as_str(),
+        )
+    } else if let Some(t) = return_type.as_ts_keyword_type() {
+        match t.kind {
+            TsKeywordTypeKind::TsVoidKeyword
+            | TsKeywordTypeKind::TsUndefinedKeyword
+            | TsKeywordTypeKind::TsNullKeyword => None,
+            _ => Some("i64"),
+        }
+    } else {
+        Some("i64")
+    };
+    if let Some(r) = return_type {
+        results.push(Param::new("result", val_type(r)));
+    }
+    Ok(())
+}
+
 /// Parses the non-main parts of the module which maps to the wasm imports
 fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Interface> {
     let mut signatures = Vec::new();
@@ -62,34 +104,18 @@ fn parse_user_interface(i: &Box<TsInterfaceDecl>) -> Result<Interface> {
         match sig {
             TsTypeElement::TsMethodSignature(t) => {
                 let name = t.key.as_ident().unwrap().sym.to_string();
-                let params = t
-                    .params
-                    .iter()
-                    .map(|p| {
-                        let vn = p.as_ident().unwrap().id.sym.as_str();
-                        let typ = p.as_ident().unwrap().type_ann.clone();
-                        let typ = typ.unwrap();
-                        let typ = &typ
-                            .type_ann
-                            .as_ts_type_ref()
-                            .unwrap()
-                            .type_name
-                            .as_ident()
-                            .unwrap()
-                            .sym;
-                        Param::new(vn, val_type(typ))
-                    })
-                    .collect::<Vec<Param>>();
-                let return_type = &t.type_ann.clone().context("Missing return type")?;
-                let return_type = &return_type
-                    .type_ann
-                    .as_ts_type_ref()
-                    .context("Illegal return type")?
-                    .type_name
-                    .as_ident()
-                    .context("Illegal return type")?
-                    .sym;
-                let results = vec![Param::new("return", val_type(return_type))];
+                let mut params = vec![];
+                let mut results = vec![];
+
+                for p in t.params.iter() {
+                    let vn = p.as_ident().unwrap().id.sym.as_str();
+                    let typ = p.as_ident().unwrap().type_ann.clone();
+                    let t = typ.unwrap().type_ann;
+                    param_type(&mut params, &vn, &t)?;
+                }
+                if let Some(return_type) = &t.type_ann {
+                    result_type(&mut results, &return_type.type_ann)?;
+                }
                 let signature = Signature {
                     name,
                     params,
@@ -144,22 +170,22 @@ fn parse_module_decl(tsmod: &Box<TsModuleDecl>) -> Result<Interface> {
                 if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(e)) = decl {
                     if let Some(fndecl) = e.decl.as_fn_decl() {
                         let name = fndecl.ident.sym.as_str().to_string();
-                        let params = vec![]; // TODO ignoring params for now
-                        let return_type = &fndecl
-                            .function
-                            .clone()
-                            .return_type
-                            .context("Missing return type")?
-                            .clone();
-                        let return_type = &return_type
-                            .type_ann
-                            .as_ts_type_ref()
-                            .context("Illegal return type")?
-                            .type_name
-                            .as_ident()
-                            .context("Illegal return type")?
-                            .sym;
-                        let results = vec![Param::new("result", val_type(return_type))];
+                        let mut params = vec![];
+                        let mut results = vec![];
+                        if let Some(return_type) = fndecl.function.clone().return_type.clone() {
+                            result_type(&mut results, &return_type.type_ann)?;
+                        }
+
+                        for param in fndecl.function.params.iter() {
+                            let name = param.pat.clone().expect_ident().id.sym.as_str().to_string();
+                            let p = param.pat.clone().expect_ident();
+                            match p.type_ann {
+                                None => params.push(Param::new(&name, val_type("i64"))),
+                                Some(ann) => {
+                                    param_type(&mut params, &name, &ann.type_ann)?;
+                                }
+                            }
+                        }
                         let signature = Signature {
                             name,
                             params,
