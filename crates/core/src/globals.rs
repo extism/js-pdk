@@ -206,7 +206,7 @@ fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
                 if !headers.is_object() {
                     bail!("Expected headers to be an object");
                 }
-                if !headers.is_object() {
+                if headers.is_object() {
                     let mut header_values = headers.properties()?;
                     loop {
                         let key = header_values.next_key()?;
