@@ -31,7 +31,8 @@ fn js_context<'a>() -> &'a JSContextRef {
             init()
         }
 
-        CONTEXT.get_unchecked()
+        let context = CONTEXT.get_unchecked();
+        context
     }
 }
 

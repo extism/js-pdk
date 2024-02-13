@@ -56,18 +56,18 @@ fn main() -> Result<()> {
     // If we have imports, we need to inject some state needed for host function support
     let mut contents = Vec::new();
     let mut names = Vec::new();
+    let mut sorted_names = Vec::new();
     for ns in &plugin_interface.imports {
-        names.extend(
-            ns.functions
-                .iter()
-                .map(|s| format!("'{}'", &s.name))
-                .collect::<Vec<String>>(),
-        );
+        sorted_names.extend(ns.functions.iter().map(|s| (&s.name, s.results.len())));
     }
-    names.sort();
-    contents.extend_from_slice(
-        format!("Host.__hostFunctions = [{}].sort();\n", names.join(", ")).as_bytes(),
-    );
+    sorted_names.sort_by_key(|x| x.0.as_str());
+
+    for (name, results) in sorted_names {
+        names.push(format!("{{ name: '{}', results: {} }}", &name, results));
+    }
+
+    contents
+        .extend_from_slice(format!("Host.__hostFunctions = [{}];\n", names.join(", ")).as_bytes());
     contents.append(&mut user_code);
 
     // Create a tmp dir to hold all the library objects
@@ -76,6 +76,7 @@ fn main() -> Result<()> {
     let core_path = tmp_dir.path().join("core.wasm");
     let shim_path = tmp_dir.path().join("shim.wasm");
 
+    // std::fs::copy(concat!(env!("OUT_DIR"), "/engine.wasm"), &core_path)?;
     // First wizen the core module
     let self_cmd = env::args().next().expect("Expected a command argument");
     {

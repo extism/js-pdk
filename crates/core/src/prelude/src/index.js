@@ -115,14 +115,17 @@ Memory.find = (offset) => {
 Host.getFunctions = () => {
   const funcs = {}
   let funcIdx = 0
-  const createInvoke = (funcIdx) => {
-    return (ptr) => {
-      console.log(`name and func ${funcIdx} ptr ${ptr}`)
-      return Host.invokeFunc(funcIdx, ptr)
+  const createInvoke = (funcIdx, results) => {
+    return (...args) => {
+      if (results == 0) {
+        return Host.invokeFunc0(funcIdx, ...args)
+      } else {
+        return Host.invokeFunc(funcIdx, ...args)
+      }
     }
   }
-  Host.__hostFunctions.forEach(name => {
-    funcs[name] = createInvoke(funcIdx++)
+  Host.__hostFunctions.forEach((x) => {
+    funcs[x.name] = createInvoke(funcIdx++, x.results)
   })
   return funcs
 }

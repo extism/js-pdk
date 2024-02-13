@@ -10,13 +10,13 @@ static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     let module = build_module_object(&context)?;
     let console = build_console_object(&context)?;
-    let host = build_host_object(&context)?;
     let var = build_var_object(&context)?;
     let http = build_http_object(&context)?;
     let cfg = build_config_object(&context)?;
     let decoder = build_decoder(&context)?;
     let encoder = build_encoder(&context)?;
     let mem = build_memory(&context)?;
+    let host = build_host_object(&context)?;
 
     let global = context.global_object()?;
     global.set_property("console", console)?;
@@ -28,6 +28,8 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("Memory", mem)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
+
+    inject_host_functions(context)?;
 
     context.eval_global(
         "script.js",
@@ -43,6 +45,10 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
 #[link(wasm_import_module = "shim")]
 extern "C" {
     // this import will get satisified by the import shim
+    fn __invokeHostFunc_0_0(func_idx: u32);
+    fn __invokeHostFunc_1_0(func_idx: u32, ptr: u64);
+    fn __invokeHostFunc_0_1(func_idx: u32) -> u64;
+    fn __invokeHostFunc_2_0(func_idx: u32, ptr: u64, ptr2: u64);
     fn __invokeHostFunc_1_1(func_idx: u32, ptr: u64) -> u64;
     fn __invokeHostFunc_2_1(func_idx: u32, ptr: u64, ptr2: u64) -> u64;
 }
@@ -116,36 +122,77 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Bool(true))
         },
     )?;
-    let host_invoke_func = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let func_id = args.get(0).unwrap().as_u32_unchecked();
-            let len = args.len() - 1;
-            match len {
-                1 => {
-                    let ptr = args.get(1).unwrap().as_u32_unchecked();
-                    let result = unsafe { __invokeHostFunc_1_1(func_id as u32, ptr as u64) };
-                    Ok(JSValue::Float(result as f64))
-                }
-                2 => {
-                    let ptr = args.get(1).unwrap().as_u32_unchecked();
-                    let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                    let result =
-                        unsafe { __invokeHostFunc_2_1(func_id as u32, ptr as u64, ptr2 as u64) };
-                    Ok(JSValue::Float(result as f64))
-                }
-                n => anyhow::bail!("__invokeHostFunc with {n} parameters is not implemented"),
-            }
-        },
-    )?;
-
     let host_object = context.object_value()?;
     host_object.set_property("inputBytes", host_input_bytes)?;
     host_object.set_property("inputString", host_input_string)?;
     host_object.set_property("outputBytes", host_output_bytes)?;
     host_object.set_property("outputString", host_output_string)?;
-    host_object.set_property("invokeFunc", host_invoke_func)?;
-
     Ok(host_object)
+}
+
+pub fn inject_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
+    let global = context.global_object()?;
+    if global
+        .get_property("Host")?
+        .get_property("invokeHost")?
+        .is_null_or_undefined()
+    {
+        let host_invoke_func = context.wrap_callback(
+            |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+                let func_id = args.get(0).unwrap().as_u32_unchecked();
+                let len = args.len() - 1;
+                match len {
+                    0 => {
+                        let result = unsafe { __invokeHostFunc_0_1(func_id as u32) };
+                        Ok(JSValue::Float(result as f64))
+                    }
+                    1 => {
+                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        let result = unsafe { __invokeHostFunc_1_1(func_id as u32, ptr as u64) };
+                        Ok(JSValue::Float(result as f64))
+                    }
+                    2 => {
+                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
+                        let result = unsafe {
+                            __invokeHostFunc_2_1(func_id as u32, ptr as u64, ptr2 as u64)
+                        };
+                        Ok(JSValue::Float(result as f64))
+                    }
+                    n => anyhow::bail!("__invokeHostFunc with {n} parameters is not implemented"),
+                }
+            },
+        )?;
+        let host_invoke_func0 = context.wrap_callback(
+            |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+                let func_id = args.get(0).unwrap().as_u32_unchecked();
+                let len = args.len() - 1;
+                match len {
+                    0 => {
+                        unsafe { __invokeHostFunc_0_0(func_id as u32) };
+                    }
+                    1 => {
+                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        unsafe { __invokeHostFunc_1_0(func_id as u32, ptr as u64) };
+                    }
+                    2 => {
+                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
+                        unsafe { __invokeHostFunc_2_0(func_id as u32, ptr as u64, ptr2 as u64) };
+                    }
+                    n => anyhow::bail!("__invokeHostFunc0 with {n} parameters is not implemented"),
+                }
+
+                Ok(JSValue::Undefined)
+            },
+        )?;
+
+        let host_object = context.global_object()?.get_property("Host")?;
+        host_object.set_property("invokeFunc", host_invoke_func)?;
+        host_object.set_property("invokeFunc0", host_invoke_func0)?;
+    }
+
+    Ok(())
 }
 
 fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
