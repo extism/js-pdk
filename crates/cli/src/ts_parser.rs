@@ -47,13 +47,13 @@ pub struct PluginInterface {
     pub imports: Vec<Interface>,
 }
 
-pub fn val_type(s: &str) -> ValType {
+pub fn val_type(s: &str) -> Result<ValType> {
     match s.to_ascii_lowercase().as_str() {
-        "i32" => ValType::I32,
-        "i64" => ValType::I64,
-        "f32" => ValType::F32,
-        "f64" => ValType::F64,
-        _ => ValType::I64, // Extism handle
+        "i32" => Ok(ValType::I32),
+        "i64" | "ptr" => Ok(ValType::I64),
+        "f32" => Ok(ValType::F32),
+        "f64" => Ok(ValType::F64),
+        _ => anyhow::bail!("Unsupported type: {}", s), // Extism handle
     }
 }
 
@@ -65,9 +65,9 @@ pub fn param_type(params: &mut Vec<Param>, vn: &str, t: &TsType) -> Result<()> {
             .sym
             .as_str()
     } else {
-        "i64"
+        anyhow::bail!("Unsupported param type: {:?}", t);
     };
-    params.push(Param::new(vn, val_type(typ)));
+    params.push(Param::new(vn, val_type(typ)?));
     Ok(())
 }
 
@@ -83,16 +83,14 @@ pub fn result_type(results: &mut Vec<Param>, return_type: &TsType) -> Result<()>
         )
     } else if let Some(t) = return_type.as_ts_keyword_type() {
         match t.kind {
-            TsKeywordTypeKind::TsVoidKeyword
-            | TsKeywordTypeKind::TsUndefinedKeyword
-            | TsKeywordTypeKind::TsNullKeyword => None,
-            _ => Some("i64"),
+            TsKeywordTypeKind::TsVoidKeyword => None,
+            _ => anyhow::bail!("Unsupported return type: {:?}", t.kind),
         }
     } else {
-        Some("i64")
+        anyhow::bail!("Unsupported return type: {:?}", return_type)
     };
     if let Some(r) = return_type {
-        results.push(Param::new("result", val_type(r)));
+        results.push(Param::new("result", val_type(r)?));
     }
     Ok(())
 }
@@ -181,7 +179,7 @@ fn parse_module_decl(tsmod: &TsModuleDecl) -> Result<Interface> {
                             let name = param.pat.clone().expect_ident().id.sym.as_str().to_string();
                             let p = param.pat.clone().expect_ident();
                             match p.type_ann {
-                                None => params.push(Param::new(&name, val_type("i64"))),
+                                None => params.push(Param::new(&name, val_type("i64")?)),
                                 Some(ann) => {
                                     param_type(&mut params, &name, &ann.type_ann)?;
                                 }
