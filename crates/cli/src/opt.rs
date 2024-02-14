@@ -38,7 +38,7 @@ impl<'a> Optimizer<'a> {
                 .run(self.wasm)?;
             std::fs::write(&dest, wasm)?;
         } else {
-            std::fs::write(&dest, &self.wasm)?;
+            std::fs::write(&dest, self.wasm)?;
         }
 
         if self.optimize {
