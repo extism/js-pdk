@@ -160,31 +160,31 @@ fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
                         Ok(JSValue::Float(result as f64))
                     }
                     1 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
                         let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
                         Ok(JSValue::Float(result as f64))
                     }
                     2 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
                         let result =
                             unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
                         Ok(JSValue::Float(result as f64))
                     }
                     3 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
                         let result = unsafe {
                             __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
                         };
                         Ok(JSValue::Float(result as f64))
                     }
                     4 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
+                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
                         let result = unsafe {
                             __invokeHostFunc_4_1(
                                 func_id,
@@ -197,11 +197,11 @@ fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
                         Ok(JSValue::Float(result as f64))
                     }
                     5 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_u32_unchecked();
-                        let ptr5 = args.get(5).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
+                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
+                        let ptr5 = args.get(5).unwrap().as_f64_unchecked();
                         let result = unsafe {
                             __invokeHostFunc_5_1(
                                 func_id,
@@ -227,27 +227,27 @@ fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
                         unsafe { __invokeHostFunc_0_0(func_id) };
                     }
                     1 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
                         unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
                     }
                     2 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
                         unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
                     }
                     3 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
                         unsafe {
                             __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
                         };
                     }
                     4 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
+                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
                         unsafe {
                             __invokeHostFunc_4_0(
                                 func_id,
@@ -259,11 +259,11 @@ fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
                         };
                     }
                     5 => {
-                        let ptr = args.get(1).unwrap().as_u32_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_u32_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_u32_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_u32_unchecked();
-                        let ptr5 = args.get(5).unwrap().as_u32_unchecked();
+                        let ptr = args.get(1).unwrap().as_f64_unchecked();
+                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
+                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
+                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
+                        let ptr5 = args.get(5).unwrap().as_f64_unchecked();
                         unsafe {
                             __invokeHostFunc_5_0(
                                 func_id,
