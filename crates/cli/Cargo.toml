@@ -18,7 +18,7 @@ swc_atoms = "0.6.5"
 swc_common = "0.33.10"
 swc_ecma_ast = "0.112"
 swc_ecma_parser = "0.143"
-wagen = {git = "https://github.com/dylibso/wagen"}
+wagen = "0.1"
 log = "0.4.20"
 tempfile = "3.8.1"
 env_logger = "0.11"
