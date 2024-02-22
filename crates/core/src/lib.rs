@@ -36,7 +36,8 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
     let result = context.eval_global("script.js", format!("{}();", func_name).as_str());
 
     while context.is_pending() {
-        context.execute_pending()?;
+        let result = context.execute_pending();
+        unwrap!(result);
     }
 
     unwrap!(result);
