@@ -35,6 +35,10 @@ pub unsafe extern "C" fn __invoke(func_idx: i32) -> i32 {
         .expect(format!("Could not find export func at index {func_idx}").as_str());
     let result = context.eval_global("script.js", format!("{}();", func_name).as_str());
 
+    while context.is_pending() {
+        context.execute_pending()?;
+    }
+
     unwrap!(result);
     0
 }
