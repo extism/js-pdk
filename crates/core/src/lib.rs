@@ -63,7 +63,10 @@ fn convert_js_value<'a>(context: &'a JSContextRef, v: &JSValue) -> JSValueRef<'a
     }
 }
 
-fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(idx: i32, conv: F) -> T {
+fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
+    idx: i32,
+    conv: F,
+) -> Result<T, anyhow::Error> {
     let call_args = unsafe { CALL_ARGS.pop() };
     let context = js_context();
     let args: Vec<_> = call_args
@@ -75,7 +78,10 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(idx: i32, conv: F
     let names = export_names(context).unwrap();
     let f = globals.get_property(names[idx as usize].as_str()).unwrap();
     let r = f.call(&context.undefined_value().unwrap(), &args).unwrap();
-    conv(context, r)
+    while context.is_pending() {
+        context.execute_pending()?;
+    }
+    Ok(conv(context, r))
 }
 
 #[no_mangle]
@@ -119,29 +125,45 @@ pub extern "C" fn __arg_f64(arg: f64) {
     }
 }
 
+macro_rules! unwrap_value {
+    ($d:expr, $x:expr) => {
+        match $x {
+            Ok(x) => x,
+            Err(e) => {
+                let err = format!("{:?}", e);
+                let mem = extism_pdk::Memory::from_bytes(&err).unwrap();
+                unsafe {
+                    extism_pdk::extism::error_set(mem.offset());
+                }
+                $d
+            }
+        }
+    };
+}
+
 #[no_mangle]
 pub extern "C" fn __invoke_i32(idx: i32) -> i32 {
-    invoke(idx, |_ctx, r| r.as_i32_unchecked())
+    unwrap_value!(-1, invoke(idx, |_ctx, r| r.as_i32_unchecked()))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_i64(idx: i32) -> i64 {
-    invoke(idx, |_ctx, r| r.as_f64_unchecked() as i64)
+    unwrap_value!(-1, invoke(idx, |_ctx, r| r.as_f64_unchecked() as i64))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f64(idx: i32) -> f64 {
-    invoke(idx, |_ctx, r| r.as_f64_unchecked())
+    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_f64_unchecked()))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f32(idx: i32) -> f32 {
-    invoke(idx, |_ctx, r| r.as_f64_unchecked() as f32)
+    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_f64_unchecked() as f32))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke(idx: i32) {
-    invoke(idx, |_ctx, _r| ())
+    unwrap_value!((), invoke(idx, |_ctx, _r| ()))
 }
 
 fn export_names(context: &JSContextRef) -> anyhow::Result<Vec<String>> {
