@@ -23,8 +23,8 @@ curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
 sh install.sh
 ```
 
-> *Note*: [Binaryen](https://github.com/WebAssembly/binaryen), specifcally the wasm-merge tool
-> is required as a dependency. We will try to package this up eventually but for now it must be reachable
+> *Note*: [Binaryen](https://github.com/WebAssembly/binaryen), specifcally the `wasm-merge` and `wasm-opt` tools
+> are required as a dependency. We will try to package this up eventually but for now it must be reachable
 > on your machine. You can install on mac with `brew install binaryen` or see their [releases page](https://github.com/WebAssembly/binaryen/releases).
 
 Then run command with no args to see the help:

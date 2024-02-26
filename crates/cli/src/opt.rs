@@ -1,9 +1,12 @@
-use anyhow::{bail, Error, Result};
-use binaryen::{CodegenConfig, Module};
-use std::path::Path;
+use anyhow::{Error, Result};
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+};
 use wizer::Wizer;
 
 pub(crate) struct Optimizer<'a> {
+    wizen: bool,
     optimize: bool,
     wasm: &'a [u8],
 }
@@ -13,40 +16,56 @@ impl<'a> Optimizer<'a> {
         Self {
             wasm,
             optimize: false,
+            wizen: false,
         }
     }
 
+    #[allow(unused)]
     pub fn optimize(self, optimize: bool) -> Self {
         Self { optimize, ..self }
     }
 
+    pub fn wizen(self, wizen: bool) -> Self {
+        Self { wizen, ..self }
+    }
+
     pub fn write_optimized_wasm(self, dest: impl AsRef<Path>) -> Result<(), Error> {
-        let mut wasm = Wizer::new()
-            .allow_wasi(true)?
-            .inherit_stdio(true)
-            .wasm_bulk_memory(true)
-            .run(self.wasm)?;
-
-        if self.optimize {
-            let codegen_cfg = CodegenConfig {
-                optimization_level: 3, // Aggressively optimize for speed.
-                shrink_level: 0,       // Don't optimize for size at the expense of performance.
-                debug_info: false,
-            };
-
-            if let Ok(mut module) = Module::read(&wasm) {
-                module.optimize(&codegen_cfg);
-                module
-                    .run_optimization_passes(vec!["strip"], &codegen_cfg)
-                    .unwrap();
-                wasm = module.write();
-            } else {
-                bail!("Unable to read wasm binary for wasm-opt optimizations");
-            }
+        if self.wizen {
+            let wasm = Wizer::new()
+                .allow_wasi(true)?
+                .inherit_stdio(true)
+                .wasm_bulk_memory(true)
+                .run(self.wasm)?;
+            std::fs::write(&dest, wasm)?;
+        } else {
+            std::fs::write(&dest, self.wasm)?;
         }
 
-        std::fs::write(dest.as_ref(), wasm)?;
+        if self.optimize {
+            optimize_wasm_file(dest)?;
+        }
 
         Ok(())
     }
+}
+
+pub(crate) fn optimize_wasm_file(dest: impl AsRef<Path>) -> Result<(), Error> {
+    let output = Command::new("wasm-opt")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    if output.is_err() {
+        anyhow::bail!("Failed to detect wasm-opt. Please install binaryen and make sure wasm-opt is on your path: https://github.com/WebAssembly/binaryen");
+    }
+    Command::new("wasm-opt")
+        .arg("--enable-reference-types")
+        .arg("--enable-bulk-memory")
+        .arg("--strip")
+        .arg("-O3")
+        .arg(dest.as_ref())
+        .arg("-o")
+        .arg(dest.as_ref())
+        .status()?;
+    Ok(())
 }

@@ -74,6 +74,30 @@ class MemoryHandle {
     return new TextDecoder().decode(this.readBytes())
   }
 
+  readUInt32() {
+    const bytes = this.readBytes();
+    const arr = new Uint32Array(bytes);
+    return arr[0];
+  }
+
+  readUInt64() {
+    const bytes = this.readBytes();
+    const arr = new BigUint64Array(bytes);
+    return arr[0];
+  }
+  
+  readFloat32() {
+    const bytes = this.readBytes();
+    const arr = new Float32Array(bytes);
+    return arr[0];
+  }
+
+  readUInt64() {
+    const bytes = this.readBytes();
+    const arr = new Float64Array(bytes);
+    return arr[0];
+  }
+
   readBytes() {
     return Memory._readBytes(this.offset)
   }
@@ -106,6 +130,34 @@ Memory.fromJsonObject = (obj) => {
   return new MemoryHandle(memData.offset, memData.len)
 }
 
+Memory.allocUInt32 = (i) => {
+  const buffer = new ArrayBuffer(4);
+  const arr = new Uint32Array(buffer);
+  arr[0] = i;
+  return Memory.fromBuffer(buffer);
+}
+
+Memory.allocUInt64 = (i) => {
+  const buffer = new ArrayBuffer(8);
+  const arr = new BigUint64Array(buffer);
+  arr[0] = i;
+  return Memory.fromBuffer(buffer);
+}
+
+Memory.allocFloat32 = (i) => {
+  const buffer = new ArrayBuffer(4);
+  const arr = new Float32Array(buffer);
+  arr[0] = i;
+  return Memory.fromBuffer(buffer);
+}
+
+Memory.allocFloat64 = (i) => {
+  const buffer = new ArrayBuffer(8);
+  const arr = new Float64Array(buffer);
+  arr[0] = i;
+  return Memory.fromBuffer(buffer);
+}
+
 Memory.find = (offset) => {
   // todo validate
   const memData = Memory._find(offset)
@@ -115,14 +167,17 @@ Memory.find = (offset) => {
 Host.getFunctions = () => {
   const funcs = {}
   let funcIdx = 0
-  const createInvoke = (funcIdx) => {
-    return (ptr) => {
-      console.log(`name and func ${funcIdx} ptr ${ptr}`)
-      return Host.invokeFunc(funcIdx, ptr)
+  const createInvoke = (funcIdx, results) => {
+    return (...args) => {
+      if (results == 0) {
+        return Host.invokeFunc0(funcIdx, ...args)
+      } else {
+        return Host.invokeFunc(funcIdx, ...args)
+      }
     }
   }
-  Host.__hostFunctions.forEach(name => {
-    funcs[name] = createInvoke(funcIdx++)
+  Host.__hostFunctions.forEach((x) => {
+    funcs[x.name] = createInvoke(funcIdx++, x.results)
   })
   return funcs
 }
