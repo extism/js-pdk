@@ -17,8 +17,24 @@ pub fn generate_wasm_shims(
     let __arg_i64 = module.import("core", "__arg_i64", None, [ValType::I64], []);
     let __arg_f32 = module.import("core", "__arg_f32", None, [ValType::F32], []);
     let __arg_f64 = module.import("core", "__arg_f64", None, [ValType::F64], []);
+    let __arg_string = module.import("core", "__arg_string", None, [ValType::I64], []);
+    let __arg_arraybuffer = module.import("core", "__arg_arraybuffer", None, [ValType::I64], []);
     let __invoke_i32 = module.import("core", "__invoke_i32", None, [ValType::I32], [ValType::I32]);
     let __invoke_i64 = module.import("core", "__invoke_i64", None, [ValType::I32], [ValType::I64]);
+    let __invoke_string = module.import(
+        "core",
+        "__invoke_string",
+        None,
+        [ValType::I32],
+        [ValType::I64],
+    );
+    let __invoke_arraybuffer = module.import(
+        "core",
+        "__invoke_arraybuffer",
+        None,
+        [ValType::I32],
+        [ValType::I64],
+    );
     let __invoke_f32 = module.import("core", "__invoke_f32", None, [ValType::I32], [ValType::F32]);
     let __invoke_f64 = module.import("core", "__invoke_f64", None, [ValType::I32], [ValType::F64]);
     let __invoke = module.import("core", "__invoke", None, [ValType::I32], []);
@@ -82,8 +98,8 @@ pub fn generate_wasm_shims(
     );
 
     for (idx, export) in exports.functions.iter().enumerate() {
-        let params: Vec<_> = export.params.iter().map(|x| x.ptype).collect();
-        let results: Vec<_> = export.results.iter().map(|x| x.ptype).collect();
+        let params = &export.params;
+        let results = &export.results;
         if results.len() > 1 {
             anyhow::bail!(
                 "Multiple return arguments are not currently supported but used in exported function {}",
@@ -91,51 +107,71 @@ pub fn generate_wasm_shims(
             );
         }
         let func = module
-            .func(&export.name, params.clone(), results.clone(), [])
+            .func(
+                &export.name,
+                params.iter().map(|x| x.ptype),
+                results.iter().map(|x| x.ptype),
+                [],
+            )
             .export(&export.name);
         let builder = func.builder();
         builder.push(Instr::Call(__arg_start.index()));
         for (parami, param) in params.into_iter().enumerate() {
             builder.push(Instr::LocalGet(parami as u32));
 
-            match param {
-                ValType::I32 => {
+            match (param.ptype, param.type_name.as_deref()) {
+                (ValType::I32, None) => {
                     builder.push(Instr::Call(__arg_i32.index()));
                 }
-                ValType::I64 => {
+                (ValType::I64, None) => {
                     builder.push(Instr::Call(__arg_i64.index()));
                 }
-                ValType::F32 => {
+                (ValType::I64, Some("string")) => {
+                    builder.push(Instr::Call(__arg_string.index()));
+                }
+                (ValType::I64, Some("arraybuffer")) => {
+                    builder.push(Instr::Call(__arg_arraybuffer.index()));
+                }
+                (ValType::F32, None) => {
                     builder.push(Instr::Call(__arg_f32.index()));
                 }
-                ValType::F64 => {
+                (ValType::F64, None) => {
                     builder.push(Instr::Call(__arg_f64.index()));
                 }
-                r => {
+                (r, None) => {
                     anyhow::bail!("Unsupported param type: {:?}", r);
+                }
+                (_, Some(name)) => {
+                    anyhow::bail!("Unsupported param type: {}", name);
                 }
             }
         }
 
         builder.push(Instr::I32Const(idx as i32));
-        match results.first() {
+        match results.first().map(|x| (x.ptype, x.type_name.as_deref())) {
             None => {
                 builder.push(Instr::Call(__invoke.index()));
             }
-            Some(ValType::I32) => {
+            Some((ValType::I32, None)) => {
                 builder.push(Instr::Call(__invoke_i32.index()));
             }
-            Some(ValType::I64) => {
+            Some((ValType::I64, None)) => {
                 builder.push(Instr::Call(__invoke_i64.index()));
             }
-            Some(ValType::F32) => {
+            Some((ValType::I64, Some("string"))) => {
+                builder.push(Instr::Call(__invoke_string.index()));
+            }
+            Some((ValType::F32, Some("arraybuffer"))) => {
                 builder.push(Instr::Call(__invoke_f32.index()));
             }
-            Some(ValType::F64) => {
+            Some((ValType::F64, None)) => {
                 builder.push(Instr::Call(__invoke_f64.index()));
             }
-            Some(r) => {
+            Some((r, None)) => {
                 anyhow::bail!("Unsupported result type: {:?}", r);
+            }
+            Some((_, Some(name))) => {
+                anyhow::bail!("Unsupported result type: {}", name);
             }
         }
     }

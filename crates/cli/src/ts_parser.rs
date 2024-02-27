@@ -17,13 +17,15 @@ use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 pub struct Param {
     pub name: String,
     pub ptype: ValType,
+    pub type_name: Option<String>,
 }
 
 impl Param {
-    pub fn new(name: &str, ptype: ValType) -> Param {
+    pub fn new(name: &str, ptype: ValType, type_name: Option<String>) -> Param {
         Param {
             name: name.to_string(),
             ptype,
+            type_name: type_name.map(|x| x.to_ascii_lowercase()),
         }
     }
 }
@@ -53,6 +55,8 @@ pub fn val_type(s: &str) -> Result<ValType> {
         "i64" | "ptr" => Ok(ValType::I64),
         "f32" => Ok(ValType::F32),
         "f64" => Ok(ValType::F64),
+        "string" => Ok(ValType::I64),
+        "arraybuffer" => Ok(ValType::I64),
         _ => anyhow::bail!("Unsupported type: {}", s), // Extism handle
     }
 }
@@ -64,10 +68,16 @@ pub fn param_type(params: &mut Vec<Param>, vn: &str, t: &TsType) -> Result<()> {
             .context("Illegal param type")?
             .sym
             .as_str()
+    } else if let Some(t) = t.as_ts_keyword_type() {
+        match t.kind {
+            TsKeywordTypeKind::TsVoidKeyword => "void",
+            TsKeywordTypeKind::TsStringKeyword => "string",
+            _ => anyhow::bail!("Unsupported param type: {:?}", t.kind),
+        }
     } else {
         anyhow::bail!("Unsupported param type: {:?}", t);
     };
-    params.push(Param::new(vn, val_type(typ)?));
+    params.push(Param::new(vn, val_type(typ)?, Some(vn.to_string())));
     Ok(())
 }
 
@@ -84,13 +94,14 @@ pub fn result_type(results: &mut Vec<Param>, return_type: &TsType) -> Result<()>
     } else if let Some(t) = return_type.as_ts_keyword_type() {
         match t.kind {
             TsKeywordTypeKind::TsVoidKeyword => None,
+            TsKeywordTypeKind::TsStringKeyword => Some("string"),
             _ => anyhow::bail!("Unsupported return type: {:?}", t.kind),
         }
     } else {
         anyhow::bail!("Unsupported return type: {:?}", return_type)
     };
     if let Some(r) = return_type {
-        results.push(Param::new("result", val_type(r)?));
+        results.push(Param::new("result", val_type(r)?, Some(r.to_string())));
     }
     Ok(())
 }
@@ -179,7 +190,7 @@ fn parse_module_decl(tsmod: &TsModuleDecl) -> Result<Interface> {
                             let name = param.pat.clone().expect_ident().id.sym.as_str().to_string();
                             let p = param.pat.clone().expect_ident();
                             match p.type_ann {
-                                None => params.push(Param::new(&name, val_type("i64")?)),
+                                None => params.push(Param::new(&name, val_type("i64")?, None)),
                                 Some(ann) => {
                                     param_type(&mut params, &name, &ann.type_ann)?;
                                 }

@@ -1,3 +1,4 @@
+use extism_pdk::Memory;
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::{JSContextRef, JSValue, JSValueRef};
 use std::io;
@@ -125,6 +126,43 @@ pub extern "C" fn __arg_f64(arg: f64) {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn __arg_string(arg: u64) {
+    unsafe {
+        if let Some(s) = Memory::find(arg) {
+            CALL_ARGS
+                .last_mut()
+                .unwrap()
+                .push(JSValue::String(s.to_string().unwrap()));
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn __arg_arraybuffer(arg: u64) {
+    unsafe {
+        if let Some(s) = Memory::find(arg) {
+            CALL_ARGS
+                .last_mut()
+                .unwrap()
+                .push(JSValue::ArrayBuffer(s.to_vec()));
+        }
+    }
+}
+
+// #[no_mangle]
+// pub extern "C" fn __arg_json(arg: u64) {
+//     unsafe {
+//         if let Some(s) = Memory::find(arg) {
+//             let v: JSValue = serde_json::from_slice(&s.to_vec()).unwrap();
+//             CALL_ARGS
+//                 .last_mut()
+//                 .unwrap()
+//                 .push(JSValue::String(s.to_string().unwrap()));
+//         }
+//     }
+// }
+
 macro_rules! unwrap_value {
     ($d:expr, $x:expr) => {
         match $x {
@@ -141,24 +179,62 @@ macro_rules! unwrap_value {
     };
 }
 
+fn number(v: &JSValueRef) -> f64 {
+    if v.is_repr_as_i32() {
+        return v.as_i32_unchecked() as f64;
+    }
+
+    v.as_f64_unchecked()
+}
+
 #[no_mangle]
 pub extern "C" fn __invoke_i32(idx: i32) -> i32 {
-    unwrap_value!(-1, invoke(idx, |_ctx, r| r.as_i32_unchecked()))
+    unwrap_value!(-1, invoke(idx, |_ctx, r| number(&r) as i32))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_i64(idx: i32) -> i64 {
-    unwrap_value!(-1, invoke(idx, |_ctx, r| r.as_f64_unchecked() as i64))
+    unwrap_value!(-1, invoke(idx, |_ctx, r| number(&r) as i64))
 }
+
+pub extern "C" fn __invoke_string(idx: i32) -> i64 {
+    unwrap_value!(
+        -1,
+        invoke(idx, |_ctx, r| {
+            let s = r.as_str().unwrap();
+            Memory::new(&s).unwrap().offset() as i64
+        })
+    )
+}
+
+pub extern "C" fn __invoke_arraybuffer(idx: i32) -> i64 {
+    unwrap_value!(
+        -1,
+        invoke(idx, |_ctx, r| {
+            let s = r.as_bytes().unwrap();
+            Memory::new(&s).unwrap().offset() as i64
+        })
+    )
+}
+
+// pub extern "C" fn __invoke_json(idx: i32) -> i64 {
+//     unwrap_value!(
+//         -1,
+//         invoke(idx, |_ctx, r| {
+//             let s = r.as_str().unwrap();
+//             Memory::new(&s).unwrap().offset() as i64
+//         })
+//     )
+// }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f64(idx: i32) -> f64 {
-    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_f64_unchecked()))
+    unwrap_value!(-1.0, invoke(idx, |_ctx, r| number(&r)))
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f32(idx: i32) -> f32 {
-    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_f64_unchecked() as f32))
+    unwrap_value!(-1.0, invoke(idx, |_ctx, r| number(&r) as f32))
 }
 
 #[no_mangle]
