@@ -77,7 +77,7 @@ pub fn param_type(params: &mut Vec<Param>, vn: &str, t: &TsType) -> Result<()> {
     } else {
         anyhow::bail!("Unsupported param type: {:?}", t);
     };
-    params.push(Param::new(vn, val_type(typ)?, Some(vn.to_string())));
+    params.push(Param::new(vn, val_type(typ)?, Some(typ.to_string())));
     Ok(())
 }
 
