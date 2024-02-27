@@ -120,7 +120,7 @@ pub fn generate_wasm_shims(
             builder.push(Instr::LocalGet(parami as u32));
 
             match (param.ptype, param.type_name.as_deref()) {
-                (ValType::I32, None) => {
+                (ValType::I32, _) => {
                     builder.push(Instr::Call(__arg_i32.index()));
                 }
                 (ValType::I64, None) => {
@@ -132,10 +132,10 @@ pub fn generate_wasm_shims(
                 (ValType::I64, Some("arraybuffer")) => {
                     builder.push(Instr::Call(__arg_arraybuffer.index()));
                 }
-                (ValType::F32, None) => {
+                (ValType::F32, _) => {
                     builder.push(Instr::Call(__arg_f32.index()));
                 }
-                (ValType::F64, None) => {
+                (ValType::F64, _) => {
                     builder.push(Instr::Call(__arg_f64.index()));
                 }
                 (r, None) => {
@@ -152,7 +152,7 @@ pub fn generate_wasm_shims(
             None => {
                 builder.push(Instr::Call(__invoke.index()));
             }
-            Some((ValType::I32, None)) => {
+            Some((ValType::I32, _)) => {
                 builder.push(Instr::Call(__invoke_i32.index()));
             }
             Some((ValType::I64, None)) => {
@@ -164,7 +164,7 @@ pub fn generate_wasm_shims(
             Some((ValType::F32, Some("arraybuffer"))) => {
                 builder.push(Instr::Call(__invoke_f32.index()));
             }
-            Some((ValType::F64, None)) => {
+            Some((ValType::F64, _)) => {
                 builder.push(Instr::Call(__invoke_f64.index()));
             }
             Some((r, None)) => {
