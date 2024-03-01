@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, str::from_utf8};
 
 use anyhow::{anyhow, bail, Context};
-use chrono::{DateTime, Local, SecondsFormat, Utc};
+use chrono::{SecondsFormat, Utc};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
