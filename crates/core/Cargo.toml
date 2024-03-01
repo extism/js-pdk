@@ -12,6 +12,7 @@ extism-pdk = "1.0.0"
 once_cell = "1.16"
 anyhow = { workspace = true }
 quickjs-wasm-rs = "3"
+chrono = { version = "0.4.34", default_features = false, features = ["clock"]}
 
 [lib]
 crate_type = ["cdylib"]
