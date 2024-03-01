@@ -7,6 +7,19 @@ globalThis.URLPattern = URLPattern;
 
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
+const __getTime = globalThis.__getTime
+
+class __ExtismDate extends Date {
+  constructor(arg) {
+    if (arg) {
+      super(arg)
+    } else {
+      super(__getTime())
+    }
+  }
+}
+
+globalThis.Date = __ExtismDate
 
 class TextDecoder {
   constructor(label = "utf-8", options = {}) {
@@ -85,7 +98,7 @@ class MemoryHandle {
     const arr = new BigUint64Array(bytes);
     return arr[0];
   }
-  
+
   readFloat32() {
     const bytes = this.readBytes();
     const arr = new Float32Array(bytes);

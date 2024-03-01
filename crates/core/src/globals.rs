@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, str::from_utf8};
 
 use anyhow::{anyhow, bail, Context};
+use chrono::{SecondsFormat, Utc};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
@@ -15,6 +16,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     let cfg = build_config_object(context)?;
     let decoder = build_decoder(context)?;
     let encoder = build_encoder(context)?;
+    let clock = build_clock(context)?;
     let mem = build_memory(context)?;
     let host = build_host_object(context)?;
 
@@ -28,6 +30,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("Memory", mem)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
+    global.set_property("__getTime", clock)?;
 
     add_host_functions(context)?;
 
@@ -483,12 +486,25 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     Ok(mem_obj)
 }
 
+fn build_clock(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
+    context.wrap_callback(get_time())
+}
+
 fn build_decoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     context.wrap_callback(decode_utf8_buffer_to_js_string())
 }
 
 fn build_encoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     context.wrap_callback(encode_js_string_to_utf8_buffer())
+}
+
+fn get_time() -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
+    move |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+        let now = Utc::now();
+        // This format is compatible with JavaScript's Date constructor
+        let formatted = now.to_rfc3339_opts(SecondsFormat::Millis, true);
+        Ok(formatted.into())
+    }
 }
 
 fn decode_utf8_buffer_to_js_string(
