@@ -2,3 +2,4 @@
 /Cargo.lock
 wasi-sdk
 *.wasm
+.venv
