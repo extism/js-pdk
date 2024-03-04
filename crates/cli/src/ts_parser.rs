@@ -112,6 +112,9 @@ fn parse_user_interface(i: &TsInterfaceDecl) -> Result<Interface> {
                     let t = typ.unwrap().type_ann;
                     param_type(&mut params, vn, &t)?;
                 }
+                if params.len() > 5 {
+                    anyhow::bail!("Host functions only support up to 5 arguments");
+                }
                 if let Some(return_type) = &t.type_ann {
                     result_type(&mut results, &return_type.type_ann)?;
                 }

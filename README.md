@@ -238,7 +238,7 @@ declare module 'extism:host' {
 }
 ```
 
-**Note:** These need to have this signature `(I64): I64` for now. We will work on making different function arities work next.
+**Note:** These functions may use any Wasm native types (`I32`, `I64`, `F32`, `F64`) and up to 5 arguments.
 
 To use these you need to use `Host.getFunctions()`:
 
@@ -272,7 +272,7 @@ function greet() {
 module.exports = { greet }
 ```
 
-**IMPORTANT:** Currently, a limitation in the js-pdk is that host functions must have 1 `I64` pointer param and 1 `I64` pointer result. We enforce this through validation of the typescript interface file.
+**IMPORTANT:** Currently, a limitation in the js-pdk is that host functions may only have up to 5 arguments.
 
 
 ## Using with a bundler
