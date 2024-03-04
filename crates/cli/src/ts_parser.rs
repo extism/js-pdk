@@ -188,9 +188,6 @@ fn parse_module_decl(tsmod: &TsModuleDecl) -> Result<Interface> {
                                 }
                             }
                         }
-                        if params.len() > 0 {
-                            anyhow::bail!("Plugin functions should not accept any parameters");
-                        }
                         let signature = Signature {
                             name,
                             params,
