@@ -360,6 +360,15 @@ export function get_closest() {
 }
 ```
 
+And a d.ts file for it at `src/index.d.ts`:
+
+```typescript
+declare module "main" {
+  // Extism exports take no params and return an I32
+  export function get_closest(): I32;
+}
+```
+
 ```bash
 # Run the build script and the plugin will be compiled to dist/plugin.wasm
 npm run build
