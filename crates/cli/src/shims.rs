@@ -23,6 +23,16 @@ pub fn generate_wasm_shims(
     let __invoke_f64 = module.import("core", "__invoke_f64", None, [ValType::I32], [ValType::F64]);
     let __invoke = module.import("core", "__invoke", None, [ValType::I32], []);
 
+    let __get_request_queue =
+        module.import("core", "__get_request_queue", None, [], [ValType::I64]);
+    let __fulfill_request = module.import(
+        "core",
+        "__fulfill_request",
+        None,
+        [ValType::I64, ValType::I32, ValType::I64],
+        [],
+    );
+
     let mut n_imports = 0;
     for import in imports.iter() {
         for _ in import.functions.iter() {
@@ -139,6 +149,29 @@ pub fn generate_wasm_shims(
             }
         }
     }
+
+    // create two functions: get_request_queue() and fulfill_request(id, disposition, memaddr)
+    let func = module
+        .func("get_request_queue", [], [ValType::I64], [])
+        .export("get_request_queue");
+
+    let builder = func.builder();
+    builder.push(Instr::Call(__get_request_queue.index()));
+
+    let func = module
+        .func(
+            "fulfill_request",
+            [ValType::I64, ValType::I32, ValType::I64],
+            [],
+            [],
+        )
+        .export("fulfill_request");
+
+    let builder = func.builder();
+    builder.push(Instr::LocalGet(0));
+    builder.push(Instr::LocalGet(1));
+    builder.push(Instr::LocalGet(2));
+    builder.push(Instr::Call(__fulfill_request.index()));
 
     module.validate_save(path.as_ref())?;
     Ok(())

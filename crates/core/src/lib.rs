@@ -5,8 +5,40 @@ use std::io::Read;
 
 mod globals;
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum RequestType {
+    SetTimeout,
+}
+
+impl TryFrom<u32> for RequestType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u32) -> anyhow::Result<Self> {
+        match value {
+            1 => Ok(RequestType::SetTimeout),
+            xs => anyhow::bail!("invalid value for request type: {xs}"),
+        }
+    }
+}
+
+impl From<RequestType> for u32 {
+    fn from(value: RequestType) -> Self {
+        match value {
+            RequestType::SetTimeout => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Request {
+    pub(crate) id: u64,
+    pub(crate) dispatch: RequestType,
+    pub(crate) args: u64,
+}
+
 static mut CONTEXT: OnceCell<JSContextRef> = OnceCell::new();
 static mut CALL_ARGS: Vec<Vec<JSValue>> = vec![];
+pub(crate) static mut REQUESTS: Vec<Request> = vec![];
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
@@ -82,6 +114,52 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
         context.execute_pending()?;
     }
     Ok(conv(context, r))
+}
+
+#[no_mangle]
+pub extern "C" fn __get_request_queue() -> u64 {
+    unsafe {
+        let mut output = Vec::<u8>::with_capacity(REQUESTS.len() * 20);
+        for request in &REQUESTS {
+            let id = request.id.to_le_bytes();
+            let dispatch: u32 = request.dispatch.into();
+            let dispatch = dispatch.to_le_bytes();
+            let args = request.args.to_le_bytes();
+
+            output.extend(id.into_iter());
+            output.extend(dispatch.into_iter());
+            output.extend(args.into_iter());
+        }
+        let mem = extism_pdk::Memory::new(&output).unwrap();
+        REQUESTS.clear();
+        mem.offset()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn __fulfill_request(id: i64, disposition: u32, memarg: u64) {
+    let context = js_context();
+    let host_obj = context
+        .global_object()
+        .unwrap()
+        .get_property("Host")
+        .unwrap();
+    let fulfiller = host_obj.get_property("fulfillHostRequest").unwrap();
+
+    let id = convert_js_value(context, &JSValue::Float(id as f64));
+    let disposition = convert_js_value(context, &JSValue::Int(disposition as i32));
+    let memarg = convert_js_value(context, &JSValue::Float(memarg as f64));
+
+    fulfiller
+        .call(
+            &context.undefined_value().unwrap(),
+            &[id, disposition, memarg],
+        )
+        .unwrap();
+
+    while context.is_pending() {
+        context.execute_pending().unwrap();
+    }
 }
 
 #[no_mangle]

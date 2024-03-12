@@ -194,3 +194,66 @@ Host.getFunctions = () => {
   })
   return funcs
 }
+
+function deferred() {
+  let resolve, reject
+  const promise = new Promise(($resolve, $reject) => {
+    resolve = $resolve
+    reject = $reject
+  });
+  return { promise, resolve, reject }
+}
+
+const HOST_REQUESTS = []
+function createHostRequest() {
+  const deferral = deferred();
+  const id = HOST_REQUESTS.push(deferral) - 1;
+  return [id, deferral]
+}
+
+Host.fulfillHostRequest = function(id, disposition, memData) {
+  let data = (
+    memData !== 0
+      ? Memory._readBytes(memData)
+      : null
+  )
+
+  const deferral = HOST_REQUESTS[id]
+  if (!deferral) {
+    throw new Error('Expected a valid deferral id but deferral was not present')
+  }
+
+  let settler = null
+  switch (disposition) {
+    case 0:
+      settler = deferral.resolve
+      break;
+    case 1:
+      data = new Error(new TextDecoder().decode(memData));
+      settler = deferral.reject
+      break;
+    default:
+      break;
+  }
+
+  settler(data)
+}
+
+const SET_TIMEOUT = 1;
+
+globalThis.setTimeout = function(cb, delay, ...params) {
+  if (typeof cb === 'string') {
+    throw new Error('TODO: implement string-y setTimeout');
+  }
+
+  delay = Number(delay || 0);
+  const [id, deferral] = createHostRequest();
+  const args = Memory.fromJsonObject([delay])
+  console.log(JSON.stringify({ args, delay }))
+  Host.enqueueWork(SET_TIMEOUT, id, args.offset)
+  deferral.promise.then(() => {
+    cb(...params || [])
+  })
+
+  return id
+}

@@ -6,6 +6,8 @@ use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 
+use crate::{Request, REQUESTS};
+
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
@@ -138,11 +140,48 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Bool(true))
         },
     )?;
+
+    let host_enqueue_work = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            // expect: ID representing a promise, string arg representing type of work,
+            // json-encoded rest
+            let mut args = args.iter();
+
+            let Some(dispatch) = args.next().and_then(|xs| xs.as_f64().ok()) else {
+                anyhow::bail!("could not fetch dispatch type id")
+            };
+
+            let Some(id) = args.next().and_then(|xs| xs.as_f64().ok()) else {
+                anyhow::bail!("could not fetch request id")
+            };
+
+            let Some(args_offset) = args.next().and_then(|xs| xs.as_f64().ok()) else {
+                anyhow::bail!("could not fetch args offset")
+            };
+            eprintln!("id={id:?} dispatch={dispatch:?} args_offset={args_offset:?}");
+
+            let id = id as u64;
+            let dispatch = dispatch as u32;
+            let args_offset = args_offset as u64;
+            unsafe {
+                REQUESTS.push(Request {
+                    id,
+                    dispatch: dispatch.try_into().unwrap(),
+                    args: args_offset,
+                });
+            }
+
+            Ok(JSValue::Undefined)
+        },
+    )?;
+
     let host_object = context.object_value()?;
     host_object.set_property("inputBytes", host_input_bytes)?;
     host_object.set_property("inputString", host_input_string)?;
     host_object.set_property("outputBytes", host_output_bytes)?;
     host_object.set_property("outputString", host_output_string)?;
+    host_object.set_property("enqueueWork", host_enqueue_work)?;
+
     Ok(host_object)
 }
 
@@ -442,8 +481,8 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             let data = data.as_bytes()?;
             let m = extism_pdk::Memory::from_bytes(data)?;
             let mut mem = HashMap::new();
-            let offset = JSValue::Int(m.offset() as i32);
-            let len = JSValue::Int(m.len() as i32);
+            let offset = JSValue::Float(m.offset() as f64);
+            let len = JSValue::Float(m.len() as f64);
             mem.insert("offset".to_string(), offset);
             mem.insert("len".to_string(), len);
             Ok(JSValue::Object(mem))
