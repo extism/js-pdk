@@ -238,7 +238,7 @@ declare module 'extism:host' {
 }
 ```
 
-**Note:** These functions may use any Wasm native types (`I32`, `I64`, `F32`, `F64`) and up to 5 arguments.
+**Note:** These functions may only use `I64` arguments, up to 5 arguments.
 
 To use these you need to use `Host.getFunctions()`:
 
