@@ -492,7 +492,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let mem_obj = context.object_value()?;
     mem_obj.set_property("_fromBuffer", memory_from_buffer)?;
     mem_obj.set_property("_find", memory_find)?;
-    mem_obj.set_property("_free", memory_find)?;
+    mem_obj.set_property("_free", memory_free)?;
     mem_obj.set_property("_readBytes", read_bytes)?;
 
     Ok(mem_obj)

@@ -77,11 +77,21 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
     let globals = context.global_object().unwrap();
     let names = export_names(context).unwrap();
     let f = globals.get_property(names[idx as usize].as_str()).unwrap();
-    let r = f.call(&context.undefined_value().unwrap(), &args).unwrap();
+    let r = f.call(&context.undefined_value().unwrap(), &args);
     while context.is_pending() {
         context.execute_pending()?;
     }
-    Ok(conv(context, r))
+    match r {
+        Ok(r) => Ok(conv(context, r)),
+        Err(err) => {
+            let e = format!("{:?}", err);
+            let mem = extism_pdk::Memory::from_bytes(&e).unwrap();
+            unsafe {
+                extism_pdk::extism::error_set(mem.offset());
+            }
+            Err(err)
+        }
+    }
 }
 
 #[no_mangle]
