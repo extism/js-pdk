@@ -1,30 +1,37 @@
-import 'core-js/actual/url';
-import 'core-js/actual/url/to-json';
-import 'core-js/actual/url-search-params';
-import { URLPattern } from 'urlpattern-polyfill';
+import "core-js/actual/url";
+import "core-js/actual/url/to-json";
+import "core-js/actual/url-search-params";
+import { URLPattern } from "urlpattern-polyfill";
 
 globalThis.URLPattern = URLPattern;
 
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
-const __getTime = globalThis.__getTime
+const __getTime = globalThis.__getTime;
 
 class __ExtismDate extends Date {
   constructor(arg) {
     if (arg) {
-      super(arg)
+      super(arg);
     } else {
-      super(__getTime())
+      super(__getTime());
     }
   }
 }
 
-globalThis.Date = __ExtismDate
+globalThis.Date = __ExtismDate;
 
 class TextDecoder {
   constructor(label = "utf-8", options = {}) {
     label = label.trim().toLowerCase();
-    const acceptedLabels = ["utf-8", "utf8", "unicode-1-1-utf-8", "unicode11utf8", "unicode20utf8", "x-unicode20utf8"];
+    const acceptedLabels = [
+      "utf-8",
+      "utf8",
+      "unicode-1-1-utf-8",
+      "unicode11utf8",
+      "unicode20utf8",
+      "x-unicode20utf8",
+    ];
     if (!acceptedLabels.includes(label)) {
       // Not spec-compliant behaviour
       throw new RangeError("The encoding label provided must be utf-8");
@@ -32,8 +39,12 @@ class TextDecoder {
     Object.defineProperties(this, {
       encoding: { value: "utf-8", enumerable: true, writable: false },
       fatal: { value: !!options.fatal, enumerable: true, writable: false },
-      ignoreBOM: { value: !!options.ignoreBOM, enumerable: true, writable: false },
-    })
+      ignoreBOM: {
+        value: !!options.ignoreBOM,
+        enumerable: true,
+        writable: false,
+      },
+    });
   }
 
   decode(input, options = {}) {
@@ -53,10 +64,18 @@ class TextDecoder {
     }
 
     if (!(input instanceof ArrayBuffer)) {
-      throw new TypeError("The provided value is not of type '(ArrayBuffer or ArrayBufferView)'");
+      throw new TypeError(
+        "The provided value is not of type '(ArrayBuffer or ArrayBufferView)'",
+      );
     }
 
-    return __decodeUtf8BufferToString(input, byteOffset, byteLength, this.fatal, this.ignoreBOM);
+    return __decodeUtf8BufferToString(
+      input,
+      byteOffset,
+      byteLength,
+      this.fatal,
+      this.ignoreBOM,
+    );
   }
 }
 
@@ -79,12 +98,12 @@ class TextEncoder {
 
 class MemoryHandle {
   constructor(offset, len) {
-    this.offset = offset
-    this.len = len
+    this.offset = offset;
+    this.len = len;
   }
 
   readString() {
-    return new TextDecoder().decode(this.readBytes())
+    return new TextDecoder().decode(this.readBytes());
   }
 
   readUInt32() {
@@ -112,11 +131,15 @@ class MemoryHandle {
   }
 
   readBytes() {
-    return Memory._readBytes(this.offset)
+    return Memory._readBytes(this.offset);
   }
 
   readJsonObject() {
-    return JSON.parse(this.readString())
+    return JSON.parse(this.readString());
+  }
+
+  free() {
+    Memory._free(this.offset);
   }
 }
 
@@ -126,71 +149,71 @@ globalThis.MemoryHandle = MemoryHandle;
 
 Memory.fromString = (str) => {
   // todo validate
-  let bytes = new TextEncoder().encode(str).buffer
-  const memData = Memory._fromBuffer(bytes)
-  return new MemoryHandle(memData.offset, memData.len)
-}
+  let bytes = new TextEncoder().encode(str).buffer;
+  const memData = Memory._fromBuffer(bytes);
+  return new MemoryHandle(memData.offset, memData.len);
+};
 
 Memory.fromBuffer = (bytes) => {
   // todo validate
-  const memData = Memory._fromBuffer(bytes)
-  return new MemoryHandle(memData.offset, memData.len)
-}
+  const memData = Memory._fromBuffer(bytes);
+  return new MemoryHandle(memData.offset, memData.len);
+};
 
 Memory.fromJsonObject = (obj) => {
   // todo validate
-  const memData = Memory.fromString(JSON.stringify(obj))
-  return new MemoryHandle(memData.offset, memData.len)
-}
+  const memData = Memory.fromString(JSON.stringify(obj));
+  return new MemoryHandle(memData.offset, memData.len);
+};
 
 Memory.allocUInt32 = (i) => {
   const buffer = new ArrayBuffer(4);
   const arr = new Uint32Array(buffer);
   arr[0] = i;
   return Memory.fromBuffer(buffer);
-}
+};
 
 Memory.allocUInt64 = (i) => {
   const buffer = new ArrayBuffer(8);
   const arr = new BigUint64Array(buffer);
   arr[0] = i;
   return Memory.fromBuffer(buffer);
-}
+};
 
 Memory.allocFloat32 = (i) => {
   const buffer = new ArrayBuffer(4);
   const arr = new Float32Array(buffer);
   arr[0] = i;
   return Memory.fromBuffer(buffer);
-}
+};
 
 Memory.allocFloat64 = (i) => {
   const buffer = new ArrayBuffer(8);
   const arr = new Float64Array(buffer);
   arr[0] = i;
   return Memory.fromBuffer(buffer);
-}
+};
 
 Memory.find = (offset) => {
   // todo validate
-  const memData = Memory._find(offset)
-  return new MemoryHandle(memData.offset, memData.len)
-}
+  const memData = Memory._find(offset);
+  return new MemoryHandle(memData.offset, memData.len);
+};
 
 Host.getFunctions = () => {
-  const funcs = {}
-  let funcIdx = 0
+  const funcs = {};
+  let funcIdx = 0;
   const createInvoke = (funcIdx, results) => {
     return (...args) => {
       if (results == 0) {
-        return Host.invokeFunc0(funcIdx, ...args)
+        return Host.invokeFunc0(funcIdx, ...args);
       } else {
-        return Host.invokeFunc(funcIdx, ...args)
+        return Host.invokeFunc(funcIdx, ...args);
       }
-    }
-  }
+    };
+  };
   Host.__hostFunctions.forEach((x) => {
-    funcs[x.name] = createInvoke(funcIdx++, x.results)
-  })
-  return funcs
-}
+    funcs[x.name] = createInvoke(funcIdx++, x.results);
+  });
+  return funcs;
+};
