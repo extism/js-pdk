@@ -465,6 +465,17 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Object(mem))
         },
     )?;
+    let memory_free = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
+            if !ptr.is_number() {
+                bail!("Expected a pointer");
+            }
+            let ptr = ptr.as_i32_unchecked();
+            extism_pdk::Memory::find(ptr as u64).map(|x| x.free());
+            Ok(JSValue::Undefined)
+        },
+    )?;
     let read_bytes = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
@@ -481,6 +492,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let mem_obj = context.object_value()?;
     mem_obj.set_property("_fromBuffer", memory_from_buffer)?;
     mem_obj.set_property("_find", memory_find)?;
+    mem_obj.set_property("_free", memory_free)?;
     mem_obj.set_property("_readBytes", read_bytes)?;
 
     Ok(mem_obj)
