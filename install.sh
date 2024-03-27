@@ -23,8 +23,8 @@ gunzip extism-js*.gz
 sudo mv extism-js-* /usr/local/bin/extism-js
 chmod +x /usr/local/bin/extism-js
 
-if ! which "wasm-merge" > /dev/null; then
-  echo "Installing wasm-merge..."
+if ! which "wasm-merge" > /dev/null || ! which "wasm-opt" > /dev/null; then
+  echo 'Missing binaryen tool(s)'
 
   # binaryen use arm64 instead where as extism-js uses aarch64 for release file naming
   case "$ARCH" in
@@ -37,14 +37,31 @@ if ! which "wasm-merge" > /dev/null; then
     ARCH="x86_64"
   fi
 
-  curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
+  if [ ! -e "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz" ]; then
+    echo 'Downloading binaryen...'
+    curl -L -O "https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_TAG/binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
+  fi
+  rm -rf 'binaryen' "binaryen-$BINARYEN_TAG"
   tar xf "binaryen-$BINARYEN_TAG-$ARCH-$OS.tar.gz"
   mv "binaryen-$BINARYEN_TAG"/ binaryen/
-  sudo mkdir /usr/local/binaryen
-  sudo mv binaryen/bin/wasm-merge /usr/local/binaryen/wasm-merge
-  sudo ln -s /usr/local/binaryen/wasm-merge /usr/local/bin/wasm-merge
-  sudo ln -s /usr/local/binaryen/wasm-opt /usr/local/bin/wasm-opt
+  sudo mkdir -p /usr/local/binaryen
+  if ! which 'wasm-merge' > /dev/null; then
+    echo "Installing wasm-merge..."
+    rm -f /usr/local/binaryen/wasm-merge
+    sudo mv binaryen/bin/wasm-merge /usr/local/binaryen/wasm-merge
+    sudo ln -s /usr/local/binaryen/wasm-merge /usr/local/bin/wasm-merge
+  else
+    echo "wasm-merge is already installed"
+  fi
+  if ! which 'wasm-opt' > /dev/null; then
+    echo "Installing wasm-opt..."
+    rm -f /usr/local/bin/wasm-opt
+    sudo mv binaryen/bin/wasm-opt /usr/local/binaryen/wasm-opt
+    sudo ln -s /usr/local/binaryen/wasm-opt /usr/local/bin/wasm-opt
+  else
+    echo "wasm-opt is already installed"
+  fi
 
 else
-  echo "wasm-merge already installed"
+  echo "wasm-merge and wasm-opt are already installed"
 fi
