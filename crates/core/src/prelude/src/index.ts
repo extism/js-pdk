@@ -13,6 +13,8 @@ declare module globalThis {
   var TextDecoder;
   var TextEncoder;
   var MemoryHandle;
+  var __Host;
+  var __Http;
 };
 
 interface MemoryData {
@@ -25,6 +27,8 @@ globalThis.URLPattern = URLPattern;
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
 const __getTime = globalThis.__getTime;
+const __Host = globalThis.__Host;
+const __Http = globalThis.__Http;
 
 class __ExtismDate extends Date {
   constructor(arg) {
@@ -162,7 +166,8 @@ export class MemoryHandle {
   }
 
   readBytes() {
-    return Memory._readBytes(this.offset);
+    // @ts-ignore
+    return __Memory._readBytes(this.offset);
   }
 
   readJsonObject() {
@@ -170,7 +175,8 @@ export class MemoryHandle {
   }
 
   free() {
-    Memory._free(this.offset);
+    // @ts-ignore
+    __Memory._free(this.offset);
   }
 }
 
@@ -182,13 +188,15 @@ export class Memory {
   public static fromString(str: string): MemoryHandle {
     // todo validate
     let bytes = new TextEncoder().encode(str).buffer;
-    const memData = Memory._fromBuffer(bytes);
+    // @ts-ignore
+    const memData = __Memory._fromBuffer(bytes);
     return new MemoryHandle(memData.offset, memData.len);
   };
 
   public static fromBuffer(bytes: ArrayBufferLike): MemoryHandle {
     // todo validate
-    const memData = Memory._fromBuffer(bytes);
+    // @ts-ignore
+    const memData = __Memory._fromBuffer(bytes);
     return new MemoryHandle(memData.offset, memData.len);
   };
 
@@ -228,21 +236,13 @@ export class Memory {
 
   public static find(offset: number): MemoryHandle {
     // todo validate
-    const memData = Memory._find(offset);
+    // @ts-ignore
+    const memData = __Memory._find(offset);
     return new MemoryHandle(memData.offset, memData.len);
   };
-
-  //@ts-ignore
-  static _fromBuffer(buffer: ArrayBuffer): MemoryData;
-  //@ts-ignore
-  static _find(offset: number): MemoryData;
-  //@ts-ignore
-  static _free(offset: number): MemoryData;
-  //@ts-ignore
-  static _readBytes(offset: number): ArrayBufferLike;
 }
 
-export class host {
+export class Host {
   public static getFunctions(): Object {
     const funcs = {};
     let funcIdx = 0;
@@ -250,47 +250,50 @@ export class host {
       return (...args: any[]) => {
         if (results == 0) {
           // @ts-ignore
-          return Host.invokeFunc0(funcIdx, ...args);
+          return __Host.invokeFunc0(funcIdx, ...args);
         } else {
           // @ts-ignore
-          return Host.invokeFunc(funcIdx, ...args);
+          return __Host.invokeFunc(funcIdx, ...args);
         }
       };
     };
+
     // @ts-ignore
-    Host.__hostFunctions.forEach((x) => {
+    __Host.__hostFunctions.forEach((x) => {
       funcs[x.name] = createInvoke(funcIdx++, x.results);
     });
     return funcs;
   };                                          
   // @ts-ignore  
-  public static inputBytes(): ArrayBufferLike { return Host.inputBytes() };
+  public static inputBytes(): ArrayBufferLike { return __Host.inputBytes() };
   // @ts-ignore  
-  public static inputString(): string { return Host.inputString() }; 
+  public static inputString(): string { return __Host.inputString() }; 
   // @ts-ignore  
-  public static outputBytes(output: ArrayBufferLike) { Host.outputBytes(output) };
+  public static outputBytes(output: ArrayBufferLike) { __Host.outputBytes(output) };
   // @ts-ignore  
-  public static outputString(output: string) { Host.outputString(output) };
+  public static outputString(output: string) { __Host.outputString(output) };
 }
 
-// //@ts-ignore
-// Host.getFunctions = () => {
-//   const funcs = {};
-//   let funcIdx = 0;
-//   const createInvoke = (funcIdx: number, results: number) => {
-//     return (...args: any[]) => {
-//       if (results == 0) {
-//         // @ts-ignore
-//         return Host.invokeFunc0(funcIdx, ...args);
-//       } else {
-//         // @ts-ignore
-//         return Host.invokeFunc(funcIdx, ...args);
-//       }
-//     };
-//   };
-//   // @ts-ignore
-//   Host.__hostFunctions.forEach((x) => {
-//     funcs[x.name] = createInvoke(funcIdx++, x.results);
-//   });
-//   return funcs;
-// };
+export interface HttpRequest {
+  url: string;
+  method?: "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
+  headers?: {};
+}
+
+export interface HttpResponse {
+  body: string;
+  status: number;
+}
+
+export class Http {
+  public static request(req: HttpRequest, body?: ArrayBufferLike): HttpResponse {
+    if (body) {
+      const s = new Uint8Array(body).toString()
+      // @ts-ignore
+      return __Http.request(req, s);
+    } 
+
+    // @ts-ignore
+    return __Http.request(req)
+  }
+}

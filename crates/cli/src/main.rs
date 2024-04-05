@@ -58,8 +58,9 @@ fn main() -> Result<()> {
         names.push(format!("{{ name: '{}', results: {} }}", &name, results));
     }
 
-    contents
-        .extend_from_slice(format!("Host.__hostFunctions = [{}];\n", names.join(", ")).as_bytes());
+    contents.extend_from_slice(
+        format!("__Host.__hostFunctions = [{}];\n", names.join(", ")).as_bytes(),
+    );
     contents.append(&mut user_code);
 
     // Create a tmp dir to hold all the library objects
