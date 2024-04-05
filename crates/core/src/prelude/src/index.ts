@@ -13,8 +13,10 @@ declare module globalThis {
   var TextDecoder;
   var TextEncoder;
   var MemoryHandle;
-  var __Host;
-  var __Http;
+  var Host;
+  var Http;
+  var Var;
+  var Config;
 };
 
 interface MemoryData {
@@ -27,8 +29,10 @@ globalThis.URLPattern = URLPattern;
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
 const __getTime = globalThis.__getTime;
-const __Host = globalThis.__Host;
-const __Http = globalThis.__Http;
+const __Host = globalThis.Host;
+const __Http = globalThis.Http;
+const __Var = globalThis.Var;
+const __Config = globalThis.Config;
 
 class __ExtismDate extends Date {
   constructor(arg) {
@@ -128,6 +132,9 @@ class TextEncoder {
   }
 }
 
+globalThis.TextDecoder = TextDecoder;
+globalThis.TextEncoder = TextEncoder;
+
 export class MemoryHandle {
   offset: number;
   len: number;
@@ -180,8 +187,6 @@ export class MemoryHandle {
   }
 }
 
-globalThis.TextDecoder = TextDecoder;
-globalThis.TextEncoder = TextEncoder;
 globalThis.MemoryHandle = MemoryHandle;
 
 export class Memory {

@@ -1,5 +1,4 @@
-import { Host, Http, Var, Config } from "../../../crates/core/src/prelude/src/index.ts";
-
+import { Var, Http, Config, Host } from "../../../crates/core/src/prelude/src/index.ts";
 export function greet() {
   Var.set("name", "MAYBESteve");
   let extra = new TextEncoder().encode("aaa")

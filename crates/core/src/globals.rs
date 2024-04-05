@@ -23,11 +23,11 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     let global = context.global_object()?;
     global.set_property("console", console)?;
     global.set_property("module", module)?;
-    global.set_property("__Host", host)?;
-    global.set_property("__Var", var)?;
-    global.set_property("__Http", http)?;
-    global.set_property("__Config", cfg)?;
-    global.set_property("__Memory", mem)?;
+    global.set_property("Host", host)?;
+    global.set_property("Var", var)?;
+    global.set_property("Http", http)?;
+    global.set_property("Config", cfg)?;
+    global.set_property("Memory", mem)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
     global.set_property("__getTime", clock)?;
@@ -149,7 +149,7 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
     let global = context.global_object()?;
     if global
-        .get_property("__Host")?
+        .get_property("Host")?
         .get_property("invokeHost")?
         .is_null_or_undefined()
     {
@@ -285,7 +285,7 @@ fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
             },
         )?;
 
-        let host_object = context.global_object()?.get_property("__Host")?;
+        let host_object = context.global_object()?.get_property("Host")?;
         host_object.set_property("invokeFunc", host_invoke_func)?;
         host_object.set_property("invokeFunc0", host_invoke_func0)?;
     }
