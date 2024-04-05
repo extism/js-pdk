@@ -314,3 +314,10 @@ export class Var {
     return __Var.getString(name);
   }
 }
+
+export class Config {
+  public static get(key: string): string | null {
+    // @ts-ignore
+    return __Config.get(key)
+  }
+}
