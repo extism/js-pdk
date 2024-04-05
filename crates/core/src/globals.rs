@@ -27,7 +27,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("Var", var)?;
     global.set_property("__Http", http)?;
     global.set_property("Config", cfg)?;
-    global.set_property("Memory", mem)?;
+    global.set_property("__Memory", mem)?;
     global.set_property("__decodeUtf8BufferToString", decoder)?;
     global.set_property("__encodeStringToUtf8Buffer", encoder)?;
     global.set_property("__getTime", clock)?;
