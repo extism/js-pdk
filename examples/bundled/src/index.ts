@@ -1,5 +1,7 @@
+import { host } from "../../../crates/core/src/prelude/dist/index.js";
+
 export function greet() {
   let extra = new TextEncoder().encode("aaa")
   let decoded = new TextDecoder().decode(extra)
-  Host.outputString(`Hello, ${Host.inputString()} ${decoded}`)
+  host.outputString(`Hello, ${host.inputString()} ${decoded} ${new Date().toString()}`)
 }
