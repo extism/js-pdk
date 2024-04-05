@@ -24,7 +24,7 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     global.set_property("console", console)?;
     global.set_property("module", module)?;
     global.set_property("__Host", host)?;
-    global.set_property("Var", var)?;
+    global.set_property("__Var", var)?;
     global.set_property("__Http", http)?;
     global.set_property("Config", cfg)?;
     global.set_property("__Memory", mem)?;

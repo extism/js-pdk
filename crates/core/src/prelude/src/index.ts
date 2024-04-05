@@ -294,6 +294,23 @@ export class Http {
     } 
 
     // @ts-ignore
-    return __Http.request(req)
+    return __Http.request(req);
+  }
+}
+
+export class Var {
+  public static set(name: string, value: string | ArrayBufferLike) {
+    // @ts-ignore
+    __Var.set(name, value);
+  }
+
+  public static getBytes(name: string): ArrayBufferLike | null {
+    // @ts-ignore
+    return __Var.getBytes(name);
+  }
+
+  public static getString(name: string): string | null {
+    // @ts-ignore
+    return __Var.getString(name);
   }
 }
