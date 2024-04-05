@@ -44,7 +44,7 @@ clean-wasi-sdk:
 
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
-		@extism call examples/bundled.wasm greet --wasi --input="Benjamin"
+		@extism call examples/bundled.wasm greet --wasi --input="Benjamin" --allow-host "example.com"
 		@python3 -m venv ./.venv && \
 			. ./.venv/bin/activate && \
 			pip install -r examples/host_funcs/requirements.txt && \
