@@ -3,7 +3,6 @@ import "core-js/actual/url/to-json";
 import "core-js/actual/url-search-params";
 import { URLPattern } from "urlpattern-polyfill";
 
-
 declare module globalThis {
   var URLPattern;
   function __decodeUtf8BufferToString(...args): string;
@@ -13,18 +12,36 @@ declare module globalThis {
   var TextDecoder;
   var TextEncoder;
   var MemoryHandle;
+  var Memory;
   var Host;
   var Http;
   var Var;
   var Config;
 };
 
-interface MemoryData {
-  offset: number,
-  len: number,
-};
-
 globalThis.URLPattern = URLPattern;
+
+const getFunctions = () => {
+  const funcs = {};
+  let funcIdx = 0;
+  const createInvoke = (funcIdx: number, results: number) => {
+    return (...args: any[]) => {
+      if (results == 0) {
+        // @ts-ignore
+        return globalThis.Host.invokeFunc0(funcIdx, ...args);
+      } else {
+        // @ts-ignore
+        return globalThis.Host.invokeFunc(funcIdx, ...args);
+      }
+    };
+  };
+
+  // @ts-ignore
+  globalThis.Host.__hostFunctions.forEach((x) => {
+    funcs[x.name] = createInvoke(funcIdx++, x.results);
+  });
+  return funcs;
+}
 
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
@@ -33,6 +50,7 @@ const __Host = globalThis.Host;
 const __Http = globalThis.Http;
 const __Var = globalThis.Var;
 const __Config = globalThis.Config;
+const __Memory = globalThis.Memory;
 
 class __ExtismDate extends Date {
   constructor(arg) {
@@ -247,28 +265,10 @@ export class Memory {
   };
 }
 
-export class Host {
-  public static getFunctions(): Object {
-    const funcs = {};
-    let funcIdx = 0;
-    const createInvoke = (funcIdx: number, results: number) => {
-      return (...args: any[]) => {
-        if (results == 0) {
-          // @ts-ignore
-          return __Host.invokeFunc0(funcIdx, ...args);
-        } else {
-          // @ts-ignore
-          return __Host.invokeFunc(funcIdx, ...args);
-        }
-      };
-    };
+globalThis.Memory = Memory;
 
-    // @ts-ignore
-    __Host.__hostFunctions.forEach((x) => {
-      funcs[x.name] = createInvoke(funcIdx++, x.results);
-    });
-    return funcs;
-  };                                          
+export class Host {
+  public static getFunctions = getFunctions;                                       
   // @ts-ignore  
   public static inputBytes(): ArrayBufferLike { return __Host.inputBytes() };
   // @ts-ignore  
@@ -327,4 +327,4 @@ export class Config {
   }
 }
 
-globalThis.Host.getFunctions = Host.getFunctions;
+globalThis.Host.getFunctions = getFunctions;
