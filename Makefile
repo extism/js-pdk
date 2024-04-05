@@ -15,6 +15,7 @@ core:
 			  && cd src/prelude \
 				&& npm install \
 				&& npm run build \
+				&& npx -y -p typescript tsc src/index.ts --lib es2020 --declaration --emitDeclarationOnly --outDir dist \
 				&& cd ../.. \
 				&& cargo build --release --target=wasm32-wasi \
 				&& cd -
@@ -43,7 +44,7 @@ clean-wasi-sdk:
 
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
-		@extism call examples/bundled.wasm greet --wasi --input="Benjamin"
+		@extism call examples/bundled.wasm greet --wasi --input="Benjamin" --allow-host "example.com"
 		@python3 -m venv ./.venv && \
 			. ./.venv/bin/activate && \
 			pip install -r examples/host_funcs/requirements.txt && \
@@ -55,3 +56,8 @@ compile-examples: cli
 		cd examples/bundled && npm install && npm run build && cd ../..
 		./target/release/extism-js examples/host_funcs/script.js -i examples/host_funcs/script.d.ts -o examples/host_funcs.wasm
 		./target/release/extism-js examples/exports/script.js -i examples/exports/script.d.ts -o examples/exports.wasm
+
+kitchen: 
+	cd examples/kitchen-sink && npm install && npm run build && cd ../..
+	./target/release/extism-js examples/kitchen-sink/dist/index.js -i examples/kitchen-sink/src/index.d.ts -o examples/kitchen-sink.wasm
+	@extism call examples/kitchen-sink.wasm greet --input "Steve" --wasi --allow-host "*" --config "last_name=Manuel"
