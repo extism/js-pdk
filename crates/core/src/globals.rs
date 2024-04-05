@@ -442,8 +442,8 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             let data = data.as_bytes()?;
             let m = extism_pdk::Memory::from_bytes(data)?;
             let mut mem = HashMap::new();
-            let offset = JSValue::Int(m.offset() as i32);
-            let len = JSValue::Int(m.len() as i32);
+            let offset = JSValue::Float(m.offset() as f64);
+            let len = JSValue::Float(m.len() as f64);
             mem.insert("offset".to_string(), offset);
             mem.insert("len".to_string(), len);
             Ok(JSValue::Object(mem))
@@ -455,11 +455,16 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             if !ptr.is_number() {
                 bail!("Expected a pointer");
             }
-            let ptr = ptr.as_i32_unchecked();
+            let ptr = if ptr.is_repr_as_i32() {
+                ptr.as_i32_unchecked() as i64
+            } else {
+                ptr.as_f64_unchecked() as i64
+            };
+
             let m = extism_pdk::Memory::find(ptr as u64).unwrap();
             let mut mem = HashMap::new();
-            let offset = JSValue::Int(m.offset() as i32);
-            let len = JSValue::Int(m.len() as i32);
+            let offset = JSValue::Float(m.offset() as f64);
+            let len = JSValue::Float(m.len() as f64);
             mem.insert("offset".to_string(), offset);
             mem.insert("len".to_string(), len);
             Ok(JSValue::Object(mem))
@@ -471,8 +476,15 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             if !ptr.is_number() {
                 bail!("Expected a pointer");
             }
-            let ptr = ptr.as_i32_unchecked();
-            extism_pdk::Memory::find(ptr as u64).map(|x| x.free());
+            let ptr = if ptr.is_repr_as_i32() {
+                ptr.as_i32_unchecked() as i64
+            } else {
+                ptr.as_f64_unchecked() as i64
+            };
+            if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
+                x.free();
+            }
+
             Ok(JSValue::Undefined)
         },
     )?;
@@ -482,7 +494,11 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             if !ptr.is_number() {
                 bail!("Expected a pointer");
             }
-            let ptr = ptr.as_i32_unchecked();
+            let ptr = if ptr.is_repr_as_i32() {
+                ptr.as_i32_unchecked() as i64
+            } else {
+                ptr.as_f64_unchecked() as i64
+            };
             let m = extism_pdk::Memory::find(ptr as u64).unwrap();
             let bytes = m.to_vec();
             Ok(JSValue::ArrayBuffer(bytes))
