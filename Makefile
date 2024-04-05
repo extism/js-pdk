@@ -15,6 +15,7 @@ core:
 			  && cd src/prelude \
 				&& npm install \
 				&& npm run build \
+				&& npx -y -p typescript tsc src/index.ts --lib es2020 --declaration --emitDeclarationOnly --outDir dist \
 				&& cd ../.. \
 				&& cargo build --release --target=wasm32-wasi \
 				&& cd -
