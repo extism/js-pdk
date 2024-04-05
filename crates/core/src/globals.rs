@@ -6,7 +6,7 @@ use extism_pdk::extism::load_input;
 use extism_pdk::*;
 use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 
-static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
+static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js"); // if this panics, run `make` from the root
 
 pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
     let module = build_module_object(context)?;
