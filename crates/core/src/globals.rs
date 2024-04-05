@@ -442,6 +442,18 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             let data = data.as_bytes()?;
             let m = extism_pdk::Memory::from_bytes(data)?;
             let mut mem = HashMap::new();
+
+            // FLOAT NOTE(Chris): SDKs represent addresses as 64-bit offsets and extents. Some
+            // SDKS, like the JS SDK, store block address information in the high 32 bits. Using a
+            // QuickJS integer type would limit us to 32-bits, erasing that info.
+            //
+            // So instead we rely on the time-honored JavaScript tradition of storing 53 bits
+            // of integer data in a double-precision, 64-bit float. This gives us at least 5
+            // bits of the high 32-bits, which allows the JS-SDK to represent 32 allocations.
+            //
+            // Notably, QuickJS supports 64-bit integers (bigint) types, they're just not exposed
+            // through the wrapper library we're using. We should revisit once someone (maybe us?)
+            // exposes bigints through the library.
             let offset = JSValue::Float(m.offset() as f64);
             let len = JSValue::Float(m.len() as f64);
             mem.insert("offset".to_string(), offset);
@@ -451,9 +463,9 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let memory_find = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
+            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
             if !ptr.is_number() {
-                bail!("Expected a pointer");
+                bail!("Expected an offset");
             }
             let ptr = if ptr.is_repr_as_i32() {
                 ptr.as_i32_unchecked() as i64
@@ -463,6 +475,8 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 
             let m = extism_pdk::Memory::find(ptr as u64).unwrap();
             let mut mem = HashMap::new();
+
+            // See "FLOAT NOTE".
             let offset = JSValue::Float(m.offset() as f64);
             let len = JSValue::Float(m.len() as f64);
             mem.insert("offset".to_string(), offset);
@@ -472,9 +486,9 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let memory_free = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
+            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
             if !ptr.is_number() {
-                bail!("Expected a pointer");
+                bail!("Expected an offset");
             }
             let ptr = if ptr.is_repr_as_i32() {
                 ptr.as_i32_unchecked() as i64
@@ -490,9 +504,9 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
     let read_bytes = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected ptr argument"))?;
+            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
             if !ptr.is_number() {
-                bail!("Expected a pointer");
+                bail!("Expected an offset");
             }
             let ptr = if ptr.is_repr_as_i32() {
                 ptr.as_i32_unchecked() as i64
