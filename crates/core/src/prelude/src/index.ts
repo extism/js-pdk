@@ -326,3 +326,5 @@ export class Config {
     return __Config.get(key)
   }
 }
+
+globalThis.Host.getFunctions = Host.getFunctions;
