@@ -4,7 +4,7 @@ declare module 'main' {
 
 declare module 'extism:host' {
   interface user {
-    myHostFunction1(ptr: I64): I64;
-    myHostFunction2(ptr: I64): I64;
+    myHostFunction1(ptr: PTR): PTR;
+    myHostFunction2(ptr: PTR): PTR;
   }
 }
