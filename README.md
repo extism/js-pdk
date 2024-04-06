@@ -10,7 +10,7 @@ This PDK uses [QuickJS](https://bellard.org/quickjs/) and [wizer](https://github
 
 This is essentially a fork of [Javy](https://github.com/bytecodealliance/javy) by Shopify. We may wish to collaborate and upstream some things to them. For the time being I built this up from scratch using some of their crates, namely quickjs-wasm-rs.
 
-> Warning: This is a very bare-bones runtime. It's only for running pure JS code and is not compatible with node or the browser.
+> Warning: This is a very bare-bones runtime. It's only for running pure JS code and it does not expose node APIs or the browser APIs.
 > We have limited support for some W3C APIs (e.g. we support `Text{Encoder,Decoder}` but not `fetch`),
 > but many modules you take from npm will not work out of the box. There is no support for node APIs or anything that makes syscalls typically. You'll need to
 > polyfill any APIs with a pure JS implementation, which is often possible, but some things, such as controlling sockets, are not possible. Feel free to [file an issue](https://github.com/extism/js-pdk/issues/new)
