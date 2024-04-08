@@ -17,7 +17,7 @@ declare module globalThis {
   var Http;
   var Var;
   var Config;
-};
+}
 
 globalThis.URLPattern = URLPattern;
 
@@ -41,7 +41,7 @@ const getFunctions = () => {
     funcs[x.name] = createInvoke(funcIdx++, x.results);
   });
   return funcs;
-}
+};
 
 const __decodeUtf8BufferToString = globalThis.__decodeUtf8BufferToString;
 const __encodeStringToUtf8Buffer = globalThis.__encodeStringToUtf8Buffer;
@@ -66,12 +66,12 @@ globalThis.Date = __ExtismDate;
 
 interface TextDecoderOptions {
   ignoreBOM?: boolean;
-  fatal?: boolean; 
+  fatal?: boolean;
 }
 
 interface DecodeOptions {
-  stream?: any, 
-};
+  stream?: any;
+}
 
 class TextDecoder {
   constructor(label: string = "utf-8", options: TextDecoderOptions = {}) {
@@ -212,76 +212,93 @@ export class Memory {
     // todo validate
     let bytes = new TextEncoder().encode(str).buffer;
     // @ts-ignore
-    const memData = __Memory._fromBuffer(bytes);
+    const memData = Memory.fromBuffer(bytes);
     return new MemoryHandle(memData.offset, memData.len);
-  };
+  }
 
   public static fromBuffer(bytes: ArrayBufferLike): MemoryHandle {
     // todo validate
     // @ts-ignore
     const memData = __Memory._fromBuffer(bytes);
     return new MemoryHandle(memData.offset, memData.len);
-  };
+  }
 
   public static fromJsonObject(obj: JSON): MemoryHandle {
     // todo validate
     const memData = Memory.fromString(JSON.stringify(obj));
     return new MemoryHandle(memData.offset, memData.len);
-  };
+  }
 
   public static allocUInt32(i: number): MemoryHandle {
     const buffer = new ArrayBuffer(4);
     const arr = new Uint32Array(buffer);
     arr[0] = i;
     return this.fromBuffer(buffer);
-  };
+  }
 
   public static allocUInt64(i: bigint): MemoryHandle {
     const buffer = new ArrayBuffer(8);
     const arr = new BigUint64Array(buffer);
     arr[0] = i;
     return this.fromBuffer(buffer);
-  };
+  }
 
   public static allocFloat32(i: number): MemoryHandle {
     const buffer = new ArrayBuffer(4);
     const arr = new Float32Array(buffer);
     arr[0] = i;
     return this.fromBuffer(buffer);
-  };
+  }
 
   public static allocFloat64(i: number): MemoryHandle {
     const buffer = new ArrayBuffer(8);
     const arr = new Float64Array(buffer);
     arr[0] = i;
     return this.fromBuffer(buffer);
-  };
+  }
 
   public static find(offset: number): MemoryHandle {
     // todo validate
     // @ts-ignore
     const memData = __Memory._find(offset);
     return new MemoryHandle(memData.offset, memData.len);
-  };
+  }
 }
 
 globalThis.Memory = Memory;
 
 export class Host {
-  public static getFunctions = getFunctions;                                       
-  // @ts-ignore  
-  public static inputBytes(): ArrayBufferLike { return __Host.inputBytes() };
-  // @ts-ignore  
-  public static inputString(): string { return __Host.inputString() }; 
-  // @ts-ignore  
-  public static outputBytes(output: ArrayBufferLike) { __Host.outputBytes(output) };
-  // @ts-ignore  
-  public static outputString(output: string) { __Host.outputString(output) };
+  public static getFunctions = getFunctions;
+  // @ts-ignore
+  public static inputBytes(): ArrayBufferLike {
+    return __Host.inputBytes();
+  }
+  // @ts-ignore
+  public static inputString(): string {
+    return __Host.inputString();
+  }
+  // @ts-ignore
+  public static outputBytes(output: ArrayBufferLike) {
+    __Host.outputBytes(output);
+  }
+  // @ts-ignore
+  public static outputString(output: string) {
+    __Host.outputString(output);
+  }
 }
 
 export interface HttpRequest {
   url: string;
-  method?: "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
+  method?:
+    | "GET"
+    | "HEAD"
+    | "POST"
+    | "PUT"
+    | "DELETE"
+    | "CONNECT"
+    | "OPTIONS"
+    | "TRACE"
+    | "PATCH";
   headers?: {};
 }
 
@@ -291,12 +308,19 @@ export interface HttpResponse {
 }
 
 export class Http {
-  public static request(req: HttpRequest, body?: ArrayBufferLike): HttpResponse {
+  public static request(
+    req: HttpRequest,
+    body?: string | ArrayBufferLike,
+  ): HttpResponse {
     if (body) {
-      const s = new Uint8Array(body).toString()
+      if (typeof body === "string") {
+        // @ts-ignore
+        return __Http.request(req, body);
+      }
+      const s = new Uint8Array(body).toString();
       // @ts-ignore
       return __Http.request(req, s);
-    } 
+    }
 
     // @ts-ignore
     return __Http.request(req);
@@ -323,7 +347,7 @@ export class Var {
 export class Config {
   public static get(key: string): string | null {
     // @ts-ignore
-    return __Config.get(key)
+    return __Config.get(key);
   }
 }
 
