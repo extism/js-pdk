@@ -56,3 +56,8 @@ compile-examples: cli
 		cd examples/bundled && npm install && npm run build && cd ../..
 		./target/release/extism-js examples/host_funcs/script.js -i examples/host_funcs/script.d.ts -o examples/host_funcs.wasm
 		./target/release/extism-js examples/exports/script.js -i examples/exports/script.d.ts -o examples/exports.wasm
+
+kitchen: 
+	cd examples/kitchen-sink && npm install && npm run build && cd ../..
+	./target/release/extism-js examples/kitchen-sink/dist/index.js -i examples/kitchen-sink/src/index.d.ts -o examples/kitchen-sink.wasm
+	@extism call examples/kitchen-sink.wasm greet --input "Steve" --wasi --allow-host "*" --config "last_name=Manuel"
