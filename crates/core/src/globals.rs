@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Context};
 use chrono::{SecondsFormat, Utc};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
-use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
+use quickjs_wasm_rs::{from_qjs_value, JSContextRef, JSError, JSValue, JSValueRef};
 
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js");
 
@@ -22,6 +22,18 @@ pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
 
     let global = context.global_object()?;
     global.set_property("console", console)?;
+    let eval_callback = context.wrap_callback(
+        |ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let stmt = args.first().ok_or(anyhow!("Needs at least one argument"))?;
+            let stmt = stmt.as_str()?;
+
+            ctx.eval_global("<eval>", stmt).map(|value_ref| {
+                from_qjs_value(value_ref)
+                    .expect("Unable to get the reference for the returned value out of the eval")
+            })
+        },
+    )?;
+    global.set_property("eval", eval_callback)?;
     global.set_property("module", module)?;
     global.set_property("Host", host)?;
     global.set_property("Var", var)?;
