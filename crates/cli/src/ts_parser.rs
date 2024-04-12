@@ -254,11 +254,13 @@ pub fn parse_interface_file(interface_path: impl AsRef<Path>) -> Result<PluginIn
 
     let module = parser.parse_module().expect("failed to parser module");
     let interfaces = parse_module(module)?;
-    let exports = interfaces
+    let mut exports = interfaces
         .iter()
         .find(|i| i.name == "main")
         .context("You need to declare a 'main' module")?
         .to_owned();
+
+    exports.functions.sort_by_key(|x| x.name.to_string());
 
     let imports = interfaces
         .into_iter()

@@ -3,7 +3,11 @@
  */
 
 function greet() {
-  Host.outputString(`Hello, ${Host.inputString()}!`)
+  Host.outputString(`Hello, ${Host.inputString()}!`);
 }
 
-module.exports = { greet }
+function goodbye() {
+  Host.outputString(`Goodbye, ${Host.inputString()}!`);
+}
+
+module.exports = { greet, goodbye };
