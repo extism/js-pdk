@@ -74,14 +74,22 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
         .iter()
         .map(|x| convert_js_value(context, x))
         .collect();
-    let globals = context.global_object().unwrap();
-    let names = export_names(context).unwrap();
-    let f = globals.get_property(names[idx as usize].as_str()).unwrap();
-    let r = f.call(&context.undefined_value().unwrap(), &args);
+
+    let global = context.global_object().unwrap();
+
+    let module = global.get_property("module")?;
+    let exports = module.get_property("exports")?;
+
+    let export_names = export_names(exports).unwrap();
+
+    let function = exports.get_property(export_names[idx as usize].as_str()).unwrap();
+    let function_invocation_result = function.call(&context.undefined_value().unwrap(), &args);
+
     while context.is_pending() {
         context.execute_pending()?;
     }
-    match r {
+
+    match function_invocation_result {
         Ok(r) => Ok(conv(context, r)),
         Err(err) => {
             let e = format!("{:?}", err);
@@ -176,10 +184,7 @@ pub extern "C" fn __invoke(idx: i32) {
     unwrap_value!((), invoke(idx, |_ctx, _r| ()))
 }
 
-fn export_names(context: &JSContextRef) -> anyhow::Result<Vec<String>> {
-    let global = context.global_object().unwrap();
-    let module = global.get_property("module")?;
-    let exports = module.get_property("exports")?;
+fn export_names(exports: JSValueRef<'static>) -> anyhow::Result<Vec<String>> {
     let mut properties = exports.properties()?;
     let mut key = properties.next_key()?;
     let mut keys: Vec<String> = vec![];
