@@ -167,7 +167,7 @@ To test it, the [Extism CLI](https://github.com/extism/cli) has a `--config` opt
 
 
 ```bash
-extism call plugin.wasm greet --config user=Benjamin
+extism call plugin.wasm greet --config user=Benjamin --wasi
 # => Hello, Benjamin!
 ```
 
