@@ -70,19 +70,19 @@ extern "C" {
 }
 
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let console_log_callback = context.wrap_callback(
+    let console_debug_callback = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = stmt.as_str()?;
+            debug!("{}", stmt);
+            Ok(JSValue::Undefined)
+        },
+    )?;
+    let console_info_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
             let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
             let stmt = stmt.as_str()?;
             info!("{}", stmt);
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let console_error_callback = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
-            let stmt = stmt.as_str()?;
-            error!("{}", stmt);
             Ok(JSValue::Undefined)
         },
     )?;
@@ -94,11 +94,24 @@ fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Undefined)
         },
     )?;
+    let console_error_callback = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
+            let stmt = stmt.as_str()?;
+            error!("{}", stmt);
+            Ok(JSValue::Undefined)
+        },
+    )?;
 
     let console_object = context.object_value()?;
-    console_object.set_property("log", console_log_callback)?;
-    console_object.set_property("error", console_error_callback)?;
+
+    // alias for console.info
+    console_object.set_property("log", console_info_callback)?;
+
+    console_object.set_property("debug", console_debug_callback)?;
+    console_object.set_property("info", console_info_callback)?;
     console_object.set_property("warn", console_warn_callback)?;
+    console_object.set_property("error", console_error_callback)?;
 
     Ok(console_object)
 }
