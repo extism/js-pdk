@@ -301,9 +301,22 @@ The easiest way to set this up would be to use esbuild. The following is a quick
 mkdir extism-plugin
 cd extism-plugin
 npm init -y
-npm install esbuild --save-dev
+npm install esbuild @extism/js-pdk --save-dev
 mkdir src
 mkdir dist
+```
+
+Optionally add a `jsconfig.json` or `tsconfig.json` to improve intellisense:
+
+```jsonc
+{
+  "compilerOptions": {
+    "lib": [], // this ensures unsupported globals aren't suggested 
+    "types": ["@extism/js-pdk"], // while this makes the IDE aware of the ones that are
+    "noEmit": true // this is only relevant for tsconfig.json
+  },
+  "include": ["src/**/*"]
+}
 ```
 
 Add `esbuild.js`:

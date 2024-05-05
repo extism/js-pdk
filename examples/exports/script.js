@@ -7,9 +7,9 @@ function add3(a, b, c) {
 }
 
 function appendString(a, b) {
-  a = Host.find(a).readString();
-  b = Host.find(b).readString();
+  a = Memory.find(a).readString();
+  b = Memory.find(b).readString();
   return Memory.fromString(a + b).offset;
 }
 
-module.exports = { add3, appendString }
+module.exports = { add3, appendString };

@@ -1,12 +1,3 @@
-import {
-  Config,
-  Host,
-  Http,
-  HttpRequest,
-  Memory,
-  Var,
-} from "../../../crates/core/src/prelude/dist/index";
-
 export function greet() {
   let input = Host.inputString();
   Var.set("input", input);
@@ -40,9 +31,7 @@ export function greet() {
     return -5;
   }
 
-  const mem = Memory.fromString(
-    "Hello, " + body.data + " " + configLastName,
-  );
+  const mem = Memory.fromString("Hello, " + body.data + " " + configLastName);
   Host.outputString(mem.readString()); // TODO: ideally have a way to output memory directly
   mem.free();
   return 0;
