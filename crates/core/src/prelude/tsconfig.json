@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "outFile": "dist/index.d.ts",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "stripInternal": true,
+    "lib": [],
+    "types": []
+  },
+  "include": ["src/**/*", "types/**/*"]
+}

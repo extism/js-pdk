@@ -1,16 +1,17 @@
 {
-    "name": "kitchen-sink",
-    "version": "1.0.0",
-    "description": "",
-    "main": "src/index.ts",
-    "scripts": {
-      "build": "node esbuild.js && extism-js dist/index.js -i src/index.d.ts -o ../kitchen-sink.wasm"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "BSD-3-Clause",
-    "devDependencies": {
-      "esbuild": "^0.19.6",
-      "typescript": "^5.3.2"
-    }
+  "name": "kitchen-sink",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "node esbuild.js && ../../target/release/extism-js dist/index.js -i src/index.d.ts -o ../kitchen-sink.wasm"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "@extism/js-pdk": "../../crates/core/src/prelude",
+    "esbuild": "^0.19.6",
+    "typescript": "^5.3.2"
   }
+}

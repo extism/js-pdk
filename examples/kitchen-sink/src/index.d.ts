@@ -1,3 +1,3 @@
-declare module 'main' {
-    export function greet(): I32;
+declare module "main" {
+  export function greet(): I32;
 }
