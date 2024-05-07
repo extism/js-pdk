@@ -1,7 +1,7 @@
 declare global {
   interface MemoryHandle {
-    offset: number;
-    len: number;
+    offset: PTR;
+    len: I64;
 
     readString(): string;
     readUInt32(): number;
@@ -15,15 +15,15 @@ declare global {
 
   var MemoryHandle: {
     prototype: MemoryHandle;
-    new (offset: number, len: number): MemoryHandle;
+    new(offset: PTR, len: I64): MemoryHandle;
   };
 }
 
 class MemoryHandle implements globalThis.MemoryHandle {
-  offset: number;
-  len: number;
+  offset: PTR;
+  len: I64;
 
-  constructor(offset: number, len: number) {
+  constructor(offset: PTR, len: I64) {
     this.offset = offset;
     this.len = len;
   }
@@ -71,4 +71,4 @@ class MemoryHandle implements globalThis.MemoryHandle {
 
 globalThis.MemoryHandle = MemoryHandle;
 
-export {};
+export { };
