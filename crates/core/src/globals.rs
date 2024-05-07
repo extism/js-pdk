@@ -473,7 +473,9 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
                 ptr.as_f64_unchecked() as i64
             };
 
-            let m = extism_pdk::Memory::find(ptr as u64).unwrap();
+            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
+            };
             let mut mem = HashMap::new();
 
             // See "FLOAT NOTE".
@@ -513,7 +515,9 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             } else {
                 ptr.as_f64_unchecked() as i64
             };
-            let m = extism_pdk::Memory::find(ptr as u64).unwrap();
+            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
+            };
             let bytes = m.to_vec();
             Ok(JSValue::ArrayBuffer(bytes))
         },

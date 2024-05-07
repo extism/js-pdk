@@ -31,20 +31,17 @@ declare global {
 
 const Memory = globalThis.Memory;
 Memory.fromString = function(this: Memory, str) {
-  // todo validate
   let bytes = new TextEncoder().encode(str).buffer;
   const memData = Memory.fromBuffer(bytes);
   return new MemoryHandle(memData.offset, memData.len);
 };
 
 Memory.fromBuffer = function(this: Memory, bytes) {
-  // todo validate
   const memData = Memory._fromBuffer(bytes);
   return new MemoryHandle(memData.offset, memData.len);
 };
 
 Memory.fromJsonObject = function(this: Memory, obj) {
-  // todo validate
   const memData = Memory.fromString(JSON.stringify(obj));
   return new MemoryHandle(memData.offset, memData.len);
 };
@@ -78,7 +75,6 @@ Memory.allocFloat64 = function(this: Memory, i) {
 };
 
 Memory.find = function(offset) {
-  // todo validate
   const memData = Memory._find(offset);
   return new MemoryHandle(memData.offset, memData.len);
 };
