@@ -1,12 +1,13 @@
 {
   "name": "@extism/js-pdk",
   "version": "1.0.0",
-  "description": "",
+  "description": "typescript definitions for the extism js-pdk",
   "types": "dist/index.d.ts",
+  "files": ["dist/*.d.ts"],
   "scripts": {
     "build": "node esbuild.js && tsc"
   },
-  "author": "",
+  "author": "The Extism Authors <oss@extism.org>",
   "license": "BSD-Clause-3",
   "devDependencies": {
     "core-js": "^3.30.2",
