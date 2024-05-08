@@ -2,12 +2,13 @@
 
 TypeScript definitions for the Extism [JS Plugin Development Kit](https://github.com/extism/js-pdk).
 
-To install these types, add them to your `tsconfig.json`'s `typeRoots`:
+To install these types, add them to your `tsconfig.json`'s `types`:
 
 ```json
 {
   "compilerOptions": {
-    "typeRoots": ["./node_modules/@extism/js-pdk", "./node_modules/@types"]
+    "lib": [], // this ensures unsupported globals aren't suggested
+    "types": ["@extism/js-pdk"], // while this makes the IDE aware of the ones that are
   }
 }
 ```
