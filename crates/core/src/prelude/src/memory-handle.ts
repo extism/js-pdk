@@ -65,7 +65,7 @@ class MemoryHandle implements globalThis.MemoryHandle {
   }
 
   free() {
-    Memory._free(this.offset);
+    Memory.free(this.offset);
   }
 }
 

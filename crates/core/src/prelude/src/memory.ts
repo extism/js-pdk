@@ -8,19 +8,22 @@ declare global {
     allocFloat32(i: number): MemoryHandle;
     allocFloat64(i: number): MemoryHandle;
     find(offset: PTR): MemoryHandle;
+    free(offset: PTR): void;
+
+    _shared: ArrayBuffer;
 
     /**
      * @internal
      */
-    _fromBuffer(buffer: ArrayBuffer): { offset: PTR; len: I64 };
+    _fromBuffer(buffer: ArrayBuffer): void;
     /**
      * @internal
      */
-    _find(offset: PTR): { offset: PTR; len: I64 };
+    _find(): void;
     /**
      * @internal
      */
-    _free(offset: PTR): void;
+    _free(): void;
     /**
      * @internal
      */
@@ -30,6 +33,8 @@ declare global {
 }
 
 const Memory = globalThis.Memory;
+const OFFSET_LEN = new DataView(Memory._shared);
+
 Memory.fromString = function(this: Memory, str) {
   let bytes = new TextEncoder().encode(str).buffer;
   const memData = Memory.fromBuffer(bytes);
@@ -37,8 +42,10 @@ Memory.fromString = function(this: Memory, str) {
 };
 
 Memory.fromBuffer = function(this: Memory, bytes) {
-  const memData = Memory._fromBuffer(bytes);
-  return new MemoryHandle(memData.offset, memData.len);
+  Memory._fromBuffer(bytes);
+  const offset = OFFSET_LEN.getBigUint64(0, true);
+  const len = OFFSET_LEN.getBigUint64(8, true);
+  return new MemoryHandle(offset, len);
 };
 
 Memory.fromJsonObject = function(this: Memory, obj) {
@@ -75,8 +82,16 @@ Memory.allocFloat64 = function(this: Memory, i) {
 };
 
 Memory.find = function(offset) {
-  const memData = Memory._find(offset);
-  return new MemoryHandle(memData.offset, memData.len);
+  OFFSET_LEN.setBigUint64(0, BigInt(offset), true);
+  Memory._find();
+  offset = OFFSET_LEN.getBigUint64(0, true);
+  const len = OFFSET_LEN.getBigUint64(8, true);
+  return new MemoryHandle(offset, len);
 };
+
+Memory.free = function(offset) {
+  OFFSET_LEN.setBigUint64(0, BigInt(offset), true);
+  Memory._free();
+}
 
 export { };

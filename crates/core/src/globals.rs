@@ -433,89 +433,73 @@ fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
 }
 
 fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
+    let arr_buf = context.array_buffer_value(&[0u8; 16])?;
+
     let memory_from_buffer = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+        |_ctx: &JSContextRef, this: JSValueRef, args: &[JSValueRef]| {
             let data = args.first().ok_or(anyhow!("Expected data argument"))?;
             if !data.is_array_buffer() {
                 bail!("Expected data to be an array buffer");
             }
             let data = data.as_bytes()?;
             let m = extism_pdk::Memory::from_bytes(data)?;
-            let mut mem = HashMap::new();
 
-            // FLOAT NOTE(Chris): SDKs represent addresses as 64-bit offsets and extents. Some
-            // SDKS, like the JS SDK, store block address information in the high 32 bits. Using a
-            // QuickJS integer type would limit us to 32-bits, erasing that info.
-            //
-            // So instead we rely on the time-honored JavaScript tradition of storing 53 bits
-            // of integer data in a double-precision, 64-bit float. This gives us at least 5
-            // bits of the high 32-bits, which allows the JS-SDK to represent 32 allocations.
-            //
-            // Notably, QuickJS supports 64-bit integers (bigint) types, they're just not exposed
-            // through the wrapper library we're using. We should revisit once someone (maybe us?)
-            // exposes bigints through the library.
-            let offset = JSValue::Float(m.offset() as f64);
-            let len = JSValue::Float(m.len() as f64);
-            mem.insert("offset".to_string(), offset);
-            mem.insert("len".to_string(), len);
-            Ok(JSValue::Object(mem))
+            let shared = this.get_property("_shared")?;
+            let buf = shared.as_bytes_mut()?;
+
+            // ce qui n'est pas clair n'est pas français
+            let offset = m.offset().to_le_bytes();
+            let len = (m.len() as u64).to_le_bytes();
+
+            buf[0..8].copy_from_slice(offset.as_slice());
+            buf[8..16].copy_from_slice(len.as_slice());
+            Ok(JSValue::Undefined)
         },
     )?;
-    let memory_find = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
-            };
 
-            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+    let memory_find = context.wrap_callback(
+        |_ctx: &JSContextRef, this: JSValueRef, args: &[JSValueRef]| {
+            let shared = this.get_property("_shared")?;
+            let buf = shared.as_bytes_mut()?;
+
+            let ptr = u64::from_le_bytes(buf[0..8].try_into()?);
+
+            let Some(m) = extism_pdk::Memory::find(ptr) else {
                 bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
             };
-            let mut mem = HashMap::new();
 
-            // See "FLOAT NOTE".
-            let offset = JSValue::Float(m.offset() as f64);
-            let len = JSValue::Float(m.len() as f64);
-            mem.insert("offset".to_string(), offset);
-            mem.insert("len".to_string(), len);
-            Ok(JSValue::Object(mem))
+            let offset = m.offset().to_le_bytes();
+            let len = (m.len() as u64).to_le_bytes();
+
+            buf[0..8].copy_from_slice(offset.as_slice());
+            buf[8..16].copy_from_slice(len.as_slice());
+            Ok(JSValue::Undefined)
         },
     )?;
     let memory_free = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
+        |_ctx: &JSContextRef, this: JSValueRef, _args: &[JSValueRef]| {
+            let shared = this.get_property("_shared")?;
+            let buf = shared.as_bytes_mut()?;
+
+            let ptr = u64::from_le_bytes(buf[0..8].try_into()?);
+
+            let Some(m) = extism_pdk::Memory::find(ptr) else {
+                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
             };
-            if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
-                x.free();
-            }
+
+            m.free();
 
             Ok(JSValue::Undefined)
         },
     )?;
     let read_bytes = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
-            };
-            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+        |_ctx: &JSContextRef, this: JSValueRef, _args: &[JSValueRef]| {
+            let shared = this.get_property("_shared")?;
+            let buf = shared.as_bytes_mut()?;
+
+            let ptr = u64::from_le_bytes(buf[0..8].try_into()?);
+
+            let Some(m) = extism_pdk::Memory::find(ptr) else {
                 bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
             };
             let bytes = m.to_vec();
@@ -524,6 +508,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     )?;
 
     let mem_obj = context.object_value()?;
+    mem_obj.set_property("_shared", arr_buf)?;
     mem_obj.set_property("_fromBuffer", memory_from_buffer)?;
     mem_obj.set_property("_find", memory_find)?;
     mem_obj.set_property("_free", memory_free)?;
