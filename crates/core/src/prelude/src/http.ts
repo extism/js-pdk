@@ -1,6 +1,7 @@
 declare global {
   interface HttpRequest {
     url: string;
+    // method defaults to "GET" if not provided
     method?:
       | "GET"
       | "HEAD"
@@ -31,12 +32,16 @@ Http.request = new Proxy(Http.request, {
       body = new Uint8Array(body).toString();
     }
 
+    if (req.method === undefined) {
+      req.method = "GET";
+    }
+
     return Reflect.apply(
       target,
       thisArg,
       // TODO: We need to completely avoid passing a second argument due to a bug in the runtime,
       // which converts `undefined` to `"undefined"`. This is also the case for req.method.
-      body !== undefined ? [req, body] : [req]
+      body !== undefined ? [req, body] : [req],
     );
   },
 });
