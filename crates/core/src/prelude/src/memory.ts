@@ -2,7 +2,7 @@ declare global {
   interface Memory {
     fromString(str: string): MemoryHandle;
     fromBuffer(bytes: ArrayBufferLike): MemoryHandle;
-    fromJsonObject(obj: JSON): MemoryHandle;
+    fromJsonObject(obj: unknown): MemoryHandle;
     allocUInt32(i: number): MemoryHandle;
     allocUInt64(i: bigint): MemoryHandle;
     allocFloat32(i: number): MemoryHandle;
