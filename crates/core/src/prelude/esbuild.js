@@ -7,6 +7,6 @@ esbuild
     bundle: true,
     sourcemap: true,
     minify: true,
-    format: "cjs", // needs to be CJS for now
+    format: "iife", 
     target: ["es2020"], // don't go over es2020 because quickjs doesn't support it
   });
