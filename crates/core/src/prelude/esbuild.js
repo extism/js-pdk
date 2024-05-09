@@ -5,7 +5,6 @@ esbuild
     entryPoints: ["src/index.ts"],
     outdir: "dist",
     bundle: true,
-    sourcemap: true,
     minify: true,
     format: "iife", 
     target: ["es2020"], // don't go over es2020 because quickjs doesn't support it
