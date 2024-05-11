@@ -26,7 +26,7 @@
  * 
  * > extism call examples/react.wasm render --wasi
  * <div style="background-color:lightblue"><p>Hello</p></div>
- * > extism call examples/react.wasm setState --input='{"type": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
+ * > extism call examples/react.wasm setState --input='{"action": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
  * <div style="background-color:tomato"><p>Hello</p></div>
  * > extism call examples/react.wasm render --wasi
  * <div style="background-color:tomato"><p>Hello</p></div>
