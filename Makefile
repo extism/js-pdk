@@ -50,6 +50,8 @@ test: compile-examples
 			pip install -r examples/host_funcs/requirements.txt && \
 			python3 examples/host_funcs/host.py examples/host_funcs.wasm && \
 			deactivate
+		@extism call examples/react.wasm render --wasi
+		@extism call examples/react.wasm setState --input='{"type": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
