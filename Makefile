@@ -52,6 +52,7 @@ test: compile-examples
 			deactivate
 
 compile-examples: cli
+		cd examples/react && npm install && npm run build && cd ../..
 		./target/release/extism-js examples/simple_js/script.js -i examples/simple_js/script.d.ts -o examples/simple_js.wasm
 		cd examples/bundled && npm install && npm run build && cd ../..
 		./target/release/extism-js examples/host_funcs/script.js -i examples/host_funcs/script.d.ts -o examples/host_funcs.wasm

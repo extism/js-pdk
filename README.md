@@ -396,6 +396,51 @@ extism call dist/plugin.wasm get_closest --input="fest" --wasi
 # => faster World
 ```
 
+## Using with React and JSX / TSX
+
+Oftentimes people want their JS plug-ins to control or create views. React and JSX are a great way to do this.
+Here is the simplest example. Let's just render a simple view in a typescript plugin.
+
+First declare a `render` export:
+
+```typescript
+declare module "main" {
+  export function render(): I32;
+}
+```
+
+Now install the deps:
+
+```bash
+npm install react-dom --save
+npm install @types/react --save-dev
+```
+
+Now we can make an index.tsx:
+
+```typescript
+import { renderToString } from 'react-dom/server';
+import React from 'react'
+
+interface AppProps {
+  name: string;
+}
+
+function App(props: AppProps) {
+  return <>
+    <p>Hello ${props.name}!</p>
+  </>
+}
+
+export function render() {
+  const props = JSON.parse(Host.inputString()) as AppProps
+  const app = <App {...props} />
+  Host.outputString(renderToString(app))
+}
+```
+
+To see a more complex example of how you might build something real, see [examples/react](./examples/react/)
+
 ## Compiling the compiler from source
 
 ### Prerequisites
