@@ -1,7 +1,9 @@
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::{JSContextRef, JSValue, JSValueRef};
+use std::ffi::CStr;
 use std::io;
 use std::io::Read;
+use std::os::raw::c_char;
 
 mod globals;
 
@@ -64,7 +66,7 @@ fn convert_js_value<'a>(context: &'a JSContextRef, v: &JSValue) -> JSValueRef<'a
 }
 
 fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
-    idx: i32,
+    func_name_ptr: i32,
     conv: F,
 ) -> Result<T, anyhow::Error> {
     let call_args = unsafe { CALL_ARGS.pop() };
@@ -80,9 +82,14 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
     let module = global.get_property("module")?;
     let exports = module.get_property("exports")?;
 
-    let export_names = export_names(exports).unwrap();
+    //let export_names = export_names(exports).unwrap();
 
-    let function = exports.get_property(export_names[idx as usize].as_str()).unwrap();
+    let function_name = unsafe {
+        let c_str = CStr::from_ptr(func_name_ptr as *const c_char);
+        c_str.to_str().expect("Failed to convert CStr to str")
+    };
+
+    let function = exports.get_property(function_name).unwrap();
     let function_invocation_result = function.call(&context.undefined_value().unwrap(), &args);
 
     while context.is_pending() {

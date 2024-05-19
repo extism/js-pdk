@@ -22,6 +22,13 @@ pub fn generate_wasm_shims(
     let __invoke_f32 = module.import("core", "__invoke_f32", None, [ValType::I32], [ValType::F32]);
     let __invoke_f64 = module.import("core", "__invoke_f64", None, [ValType::I32], [ValType::F64]);
     let __invoke = module.import("core", "__invoke", None, [ValType::I32], []);
+    let __realloc = module.import(
+        "core",
+        "realloc",
+        None,
+        [ValType::I32, ValType::I32],
+        [ValType::I32],
+    );
 
     let mut n_imports = 0;
     for import in imports.iter() {
