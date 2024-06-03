@@ -69,35 +69,39 @@ extern "C" {
     ) -> u64;
 }
 
+fn get_args_as_str(args: &[JSValueRef]) -> anyhow::Result<String> {
+    args.iter()
+        .map(|arg| arg.as_str())
+        .collect::<Result<Vec<&str>, _>>()
+        .map(|vec| vec.join(" "))
+        .context("Failed to convert args to string")
+}
+
 fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
     let console_debug_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
-            let stmt = stmt.as_str()?;
+            let stmt = get_args_as_str(args)?;
             debug!("{}", stmt);
             Ok(JSValue::Undefined)
         },
     )?;
     let console_info_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
-            let stmt = stmt.as_str()?;
+            let stmt = get_args_as_str(args)?;
             info!("{}", stmt);
             Ok(JSValue::Undefined)
         },
     )?;
     let console_warn_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
-            let stmt = stmt.as_str()?;
+            let stmt = get_args_as_str(args)?;
             warn!("{}", stmt);
             Ok(JSValue::Undefined)
         },
     )?;
     let console_error_callback = context.wrap_callback(
         |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = args.first().ok_or(anyhow!("Need at least one arg"))?;
-            let stmt = stmt.as_str()?;
+            let stmt = get_args_as_str(args)?;
             error!("{}", stmt);
             Ok(JSValue::Undefined)
         },
