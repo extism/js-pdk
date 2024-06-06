@@ -20,8 +20,6 @@ This is essentially a fork of [Javy](https://github.com/bytecodealliance/javy) b
 
 We release the compiler as native binaries you can download and run. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
 
-> **Note**: Windows is not currently a supported platform, only mac and linux. However we can build an exe if you'd like to help test it.
-
 ## Install Script
 
 ### Linux, macOS :
