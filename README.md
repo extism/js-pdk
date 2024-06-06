@@ -20,17 +20,17 @@ This is essentially a fork of [Javy](https://github.com/bytecodealliance/javy) b
 
 We release the compiler as native binaries you can download and run. Check the [releases](https://github.com/extism/js-pdk/releases) page for the latest.
 
-> **Note**: Windows is not currently a supported platform, only mac and linux. However we can build an exe if you'd like to help test it.
-
 ## Install Script
 
-### Linux, macOS :
+### Linux, macOS
+
 ```bash
 curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
 sh install.sh
 ```
 
 ### Windows
+
 >7zip is required, you can find it [here](https://www.7-zip.org/).
 
 Open the Command Prompt as Administrator, then run :
@@ -38,6 +38,9 @@ Open the Command Prompt as Administrator, then run :
 powershell Invoke-WebRequest -Uri https://raw.githubusercontent.com/extism/js-pdk/main/install-windows.ps1 -OutFile install-windows.ps1
 powershell -executionpolicy bypass -File .\install-windows.ps1
 ```
+
+### Testing the Install
+
 > *Note*: [Binaryen](https://github.com/WebAssembly/binaryen), specifically the `wasm-merge` and `wasm-opt` tools
 > are required as a dependency. We will try to package this up eventually but for now it must be reachable
 > on your machine. You can install on mac with `brew install binaryen` or see their [releases page](https://github.com/WebAssembly/binaryen/releases).
