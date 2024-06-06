@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 
-$TAG= "v1.0.0-rc10"
+$TAG= "v1.0.0-rc11"
 $BINARYEN_TAG= "version_116"
 $extismPath="$env:Programfiles\Extism"
 $binaryenPath="$env:Programfiles\Binaryen"
