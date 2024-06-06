@@ -4,7 +4,14 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-latest
+          - name: windows
+            os: windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -24,7 +31,7 @@ jobs:
         with:
           python-version: '3.12' 
 
-      - name: Update deps
+      - name: Update deps (Linux)
         run: |
           ./install-wasi-sdk.sh
           go install github.com/extism/cli/extism@latest
@@ -34,10 +41,35 @@ jobs:
           tar xvzf binaryen.tar.gz
           sudo cp binaryen-version_116/bin/wasm-merge /usr/local/bin
           sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin
+        if: runner.os != 'Windows'
 
-      - name: Run Tests
+      - name: Update deps (Windows)
+        run: |
+          powershell -executionpolicy bypass -File .\install-wasi-sdk.ps1
+          go install github.com/extism/cli/extism@latest
+          Remove-Item -Recurse -Path "c:\Program files\Binaryen" -Force -ErrorAction SilentlyContinue > $null 2>&1
+          New-Item -ItemType Directory -Force -Path "c:\Program files\Binaryen" -ErrorAction Stop > $null 2>&1
+          Invoke-WebRequest -Uri "https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-windows.tar.gz" -OutFile "$env:TMP\binaryen-version_116-x86_64-windows.tar.gz"
+          7z x "$env:TMP\binaryen-version_116-x86_64-windows.tar.gz" -o"$env:TMP\" >$null  2>&1
+          7z x -ttar "$env:TMP\binaryen-version_116-x86_64-windows.tar" -o"$env:TMP\" >$null  2>&1
+          Copy-Item -Path "$env:TMP\binaryen-version_116\bin\wasm-opt.exe" -Destination "c:\Program files\Binaryen" -ErrorAction Stop > $null 2>&1
+          Copy-Item -Path "$env:TMP\binaryen-version_116\bin\wasm-merge.exe" -Destination "c:\Program files\Binaryen" -ErrorAction Stop > $null 2>&1
+        if: runner.os == 'Windows'
+
+      - name: Run Tests (Linux)
         env:
           QUICKJS_WASM_SYS_WASI_SDK_PATH: "${{ github.workspace }}/wasi-sdk"
         run: |
           make
           make test
+        if: runner.os != 'Windows'
+
+      - name: Run Tests (Windows)
+        env:
+          QUICKJS_WASM_SYS_WASI_SDK_PATH: "${{ github.workspace }}/wasi-sdk"
+        run: |
+          set PATH="c:\Program files\Binaryen\";%PATH%
+          make
+          make test
+        shell: cmd
+        if: runner.os == 'Windows'

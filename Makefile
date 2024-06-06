@@ -2,7 +2,11 @@
 .DEFAULT_GOAL := cli
 
 download-wasi-sdk:
+ifeq ($(OS),Windows_NT)
+	powershell -executionpolicy bypass -File .\install-wasi-sdk.ps1
+else
 	sh install-wasi-sdk.sh
+endif
 
 install:
 	cargo install --path crates/cli
@@ -18,6 +22,7 @@ core:
 				&& npx -y -p typescript tsc src/index.ts --lib es2020 --declaration --emitDeclarationOnly --outDir dist \
 				&& cd ../.. \
 				&& cargo build --release --target=wasm32-wasi \
+				&& wasm-opt --enable-reference-types --enable-bulk-memory --strip -O3 ../../target/wasm32-wasi/release/js_pdk_core.wasm -o ../../target/wasm32-wasi/release/js_pdk_core.wasm \
 				&& cd -
 
 fmt: fmt-core fmt-cli
@@ -45,11 +50,19 @@ clean-wasi-sdk:
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
 		@extism call examples/bundled.wasm greet --wasi --input="Benjamin" --allow-host "example.com"
+ifeq ($(OS),Windows_NT)
+		@python3 -m venv ./.venv && \
+			./.venv/Scripts/activate.bat && \
+			pip install -r examples/host_funcs/requirements.txt && \
+			python examples/host_funcs/host.py examples/host_funcs.wasm && \
+			./.venv/Scripts/deactivate.bat
+else
 		@python3 -m venv ./.venv && \
 			. ./.venv/bin/activate && \
 			pip install -r examples/host_funcs/requirements.txt && \
 			python3 examples/host_funcs/host.py examples/host_funcs.wasm && \
 			deactivate
+endif
 		@extism call examples/react.wasm render --wasi
 		@extism call examples/react.wasm setState --input='{"action": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
 

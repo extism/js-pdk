@@ -24,11 +24,20 @@ We release the compiler as native binaries you can download and run. Check the [
 
 ## Install Script
 
+### Linux, macOS :
 ```bash
 curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
 sh install.sh
 ```
 
+### Windows
+>7zip is required, you can find it [here](https://www.7-zip.org/).
+
+Open the Command Prompt as Administrator, then run :
+```bash
+powershell Invoke-WebRequest -Uri https://raw.githubusercontent.com/extism/js-pdk/main/install-windows.ps1 -OutFile install-windows.ps1
+powershell -executionpolicy bypass -File .\install-windows.ps1
+```
 > *Note*: [Binaryen](https://github.com/WebAssembly/binaryen), specifically the `wasm-merge` and `wasm-opt` tools
 > are required as a dependency. We will try to package this up eventually but for now it must be reachable
 > on your machine. You can install on mac with `brew install binaryen` or see their [releases page](https://github.com/WebAssembly/binaryen/releases).
@@ -450,6 +459,8 @@ Before compiling the compiler, you need to install prerequisites.
 2. Install the WASI target platform via `rustup target add --toolchain stable wasm32-wasi`
 3. Install the wasi sdk using the makefile command: `make download-wasi-sdk`
 4. Install [CMake](https://cmake.org/install/) (on macOS with homebrew, `brew install cmake`)
+6. Install [Binaryen](https://github.com/WebAssembly/binaryen/) and add it's install location to your PATH (only wasm-opt is required for build process)
+5. Install [7zip](https://www.7-zip.org/)(only for Windows)
 
 
 ### Compiling from source

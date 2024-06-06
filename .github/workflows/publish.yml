@@ -9,7 +9,7 @@ on:
 jobs:
   compile_core:
     name: Compile Core
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
 
@@ -21,11 +21,21 @@ jobs:
           target: wasm32-wasi
           default: true
 
+      - name: Get wasm-opt
+        run: |
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz > binaryen.tar.gz
+          tar xvzf binaryen.tar.gz
+          sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin
+          sudo chmod +x /usr/local/bin/wasm-opt
+
       - name: Install wasi-sdk
         run: make download-wasi-sdk
 
       - name: Make core
         run: make core
+
+      - name: Opt core
+        run: wasm-opt --enable-reference-types --enable-bulk-memory --strip -O3 target/wasm32-wasi/release/js_pdk_core.wasm -o target/wasm32-wasi/release/js_pdk_core.wasm
 
       - name: Upload core binary to artifacts
         uses: actions/upload-artifact@v2
@@ -64,11 +74,16 @@ jobs:
             asset_name: extism-js-aarch64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: aarch64-apple-darwin
-          # - name: windows
-          #   os: windows-latest
-          #   path: target\release\extism-js.exe
-          #   asset_name: extism-js-x86_64-windows-${{ github.event.release.tag_name }}
-          #   shasum_cmd: sha256sum
+          - name: windows
+            os: windows-latest
+            path: target\x86_64-pc-windows-msvc\release\extism-js.exe
+            asset_name: extism-js-x86_64-windows-${{ github.event.release.tag_name }}
+            target: x86_64-pc-windows-msvc
+          - name: windows-arm64
+            os: windows-latest
+            path: target\aarch64-pc-windows-msvc\release\extism-js.exe
+            asset_name: extism-js-aarch64-windows-${{ github.event.release.tag_name }}
+            target: aarch64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v1
@@ -121,8 +136,14 @@ jobs:
           asset_name: ${{ matrix.asset_name }}.gz
           asset_content_type: application/gzip
 
-      - name: Generate asset hash
+      - name: Generate asset hash (Linux/MacOS)
         run: ${{ matrix.shasum_cmd }} ${{ matrix.asset_name }}.gz | awk '{ print $1 }' > ${{ matrix.asset_name }}.gz.sha256
+        if: runner.os != 'Windows'
+
+      - name: Generate asset hash (Windows)
+        run: Get-FileHash -Path ${{ matrix.asset_name }}.gz -Algorithm SHA256 | Select-Object -ExpandProperty Hash > ${{ matrix.asset_name }}.gz.sha256
+        shell: pwsh
+        if: runner.os == 'Windows'
 
       - name: Upload asset hash to artifacts
         uses: actions/upload-artifact@v2
