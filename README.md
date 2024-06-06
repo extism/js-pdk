@@ -22,13 +22,15 @@ We release the compiler as native binaries you can download and run. Check the [
 
 ## Install Script
 
-### Linux, macOS :
+### Linux, macOS
+
 ```bash
 curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
 sh install.sh
 ```
 
 ### Windows
+
 >7zip is required, you can find it [here](https://www.7-zip.org/).
 
 Open the Command Prompt as Administrator, then run :
@@ -36,6 +38,9 @@ Open the Command Prompt as Administrator, then run :
 powershell Invoke-WebRequest -Uri https://raw.githubusercontent.com/extism/js-pdk/main/install-windows.ps1 -OutFile install-windows.ps1
 powershell -executionpolicy bypass -File .\install-windows.ps1
 ```
+
+### Testing the Install
+
 > *Note*: [Binaryen](https://github.com/WebAssembly/binaryen), specifically the `wasm-merge` and `wasm-opt` tools
 > are required as a dependency. We will try to package this up eventually but for now it must be reachable
 > on your machine. You can install on mac with `brew install binaryen` or see their [releases page](https://github.com/WebAssembly/binaryen/releases).
