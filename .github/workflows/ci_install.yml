@@ -21,8 +21,12 @@ jobs:
         extism-js --version
       if: runner.os != 'Windows'
 
-    - name: Test Install Script (Windows)
+    - name: Test Install Script Part1 (Windows)
       run: |
         powershell -executionpolicy bypass -File .\install-windows.ps1
+      if: runner.os == 'Windows'
+
+    - name: Test Install Script Part2 (Windows)
+      run: |
         extism-js --version
       if: runner.os == 'Windows'
