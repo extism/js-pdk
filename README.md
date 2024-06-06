@@ -38,6 +38,7 @@ Open the Command Prompt as Administrator, then run :
 powershell Invoke-WebRequest -Uri https://raw.githubusercontent.com/extism/js-pdk/main/install-windows.ps1 -OutFile install-windows.ps1
 powershell -executionpolicy bypass -File .\install-windows.ps1
 ```
+This will install extism-js and binaryen dependency under `Program File` folder (i.e. C:\Program Files\Binaryen and C:\Program Files\Extism). You must add these paths to your PATH environment variable.
 
 ### Testing the Install
 
