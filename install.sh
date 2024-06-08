@@ -20,6 +20,7 @@ export BINARYEN_TAG="version_116"
 curl -L -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
 
 gunzip extism-js*.gz
+sudo mkdir -p /usr/local/bin/
 sudo mv extism-js-* /usr/local/bin/extism-js
 chmod +x /usr/local/bin/extism-js
 
