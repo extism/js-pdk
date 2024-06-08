@@ -29,10 +29,6 @@ try {
     New-Item -ItemType Directory -Force -Path $extismPath -ErrorAction Stop | Out-Null
     & $7z x "$TMPGZ" -o"$extismPath" >$null  2>&1
 
-    if ($env:Path -split ';' -notcontains $extismPath) {
-      [System.Environment]::SetEnvironmentVariable("Path", "$extismPath;$env:PATH", [System.EnvironmentVariableTarget]::Machine)
-    }
-
     if (-not (Get-Command "wasm-merge" -ErrorAction SilentlyContinue) -or -not (Get-Command "wasm-opt" -ErrorAction SilentlyContinue)) {
     
         Write-Output "Missing Binaryen tool(s)."
@@ -51,9 +47,6 @@ try {
         Copy-Item "$tempPath\binaryen-$BINARYEN_TAG\bin\wasm-merge.exe" -Destination "$binaryenPath" -ErrorAction Stop | Out-Null
     }
 
-    if ($env:Path -split ';' -notcontains $binaryenPath) {
-      [System.Environment]::SetEnvironmentVariable("Path", "$binaryenPath;$env:PATH", [System.EnvironmentVariableTarget]::Machine)
-    }
     Write-Output "Install done !"
 }catch {
   Write-Output "Install Failed: $_.Exception.Message"

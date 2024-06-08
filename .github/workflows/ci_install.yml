@@ -28,5 +28,6 @@ jobs:
 
     - name: Test Install Script Part2 (Windows)
       run: |
+        $env:Path = "C:\Program Files\Extism\;C:\Program Files\Binaryen\;" + $env:Path
         extism-js --version
       if: runner.os == 'Windows'
