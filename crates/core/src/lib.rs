@@ -1,5 +1,6 @@
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::{JSContextRef, JSValue, JSValueRef};
+use rquickjs::{Context, Runtime};
 use std::io;
 use std::io::Read;
 
@@ -10,7 +11,8 @@ static mut CALL_ARGS: Vec<Vec<JSValue>> = vec![];
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
-    let context = JSContextRef::default();
+    let runtime = Runtime::new().unwrap();
+    let context = Context::full(&runtime).unwrap();
     globals::inject_globals(&context).expect("Failed to initialize globals");
 
     let mut code = String::new();
@@ -82,7 +84,9 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
 
     let export_names = export_names(exports).unwrap();
 
-    let function = exports.get_property(export_names[idx as usize].as_str()).unwrap();
+    let function = exports
+        .get_property(export_names[idx as usize].as_str())
+        .unwrap();
     let function_invocation_result = function.call(&context.undefined_value().unwrap(), &args);
 
     while context.is_pending() {
