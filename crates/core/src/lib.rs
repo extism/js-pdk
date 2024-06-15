@@ -1,31 +1,35 @@
 use once_cell::sync::OnceCell;
 use quickjs_wasm_rs::{JSContextRef, JSValue, JSValueRef};
+use rquickjs::{Context, Runtime};
 use std::io;
 use std::io::Read;
 
 mod globals;
 
-static mut CONTEXT: OnceCell<JSContextRef> = OnceCell::new();
-static mut CALL_ARGS: Vec<Vec<JSValue>> = vec![];
+static mut CONTEXT: OnceCell<rquickjs::Context> = OnceCell::new();
+static mut CALL_ARGS: Vec<Vec<rquickjs::Value>> = vec![];
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
-    let context = JSContextRef::default();
+    let runtime = Runtime::new().unwrap();
+    let context = Context::full(&runtime).unwrap();
     globals::inject_globals(&context).expect("Failed to initialize globals");
 
     let mut code = String::new();
     io::stdin().read_to_string(&mut code).unwrap();
 
-    let _ = context
-        .eval_global("script.js", &code)
-        .expect("Could not eval main script");
+    let _ = context.with(|this| {
+        this.eval(code)?;
+        Ok::<_, rquickjs::Error>(rquickjs::Undefined)
+        
+    });
 
     unsafe {
-        CONTEXT.set(context).unwrap();
+        CONTEXT.set(context).map_err(|_| anyhow::anyhow!("Could not intialize JS Context")).unwrap()
     }
 }
 
-fn js_context<'a>() -> &'a JSContextRef {
+fn js_context<'a>() -> &'a rquickjs::Context {
     unsafe {
         if CONTEXT.get().is_none() {
             init()
@@ -82,7 +86,9 @@ fn invoke<'a, T, F: Fn(&'a JSContextRef, JSValueRef<'a>) -> T>(
 
     let export_names = export_names(exports).unwrap();
 
-    let function = exports.get_property(export_names[idx as usize].as_str()).unwrap();
+    let function = exports
+        .get_property(export_names[idx as usize].as_str())
+        .unwrap();
     let function_invocation_result = function.call(&context.undefined_value().unwrap(), &args);
 
     while context.is_pending() {
