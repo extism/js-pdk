@@ -6,8 +6,8 @@ use std::io::Read;
 
 mod globals;
 
-static mut CONTEXT: OnceCell<JSContextRef> = OnceCell::new();
-static mut CALL_ARGS: Vec<Vec<JSValue>> = vec![];
+static mut CONTEXT: OnceCell<rquickjs::Context> = OnceCell::new();
+static mut CALL_ARGS: Vec<Vec<rquickjs::Value>> = vec![];
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
@@ -18,16 +18,18 @@ extern "C" fn init() {
     let mut code = String::new();
     io::stdin().read_to_string(&mut code).unwrap();
 
-    let _ = context
-        .eval_global("script.js", &code)
-        .expect("Could not eval main script");
+    let _ = context.with(|this| {
+        this.eval(code)?;
+        Ok::<_, rquickjs::Error>(rquickjs::Undefined)
+        
+    });
 
     unsafe {
-        CONTEXT.set(context).unwrap();
+        CONTEXT.set(context).map_err(|_| anyhow::anyhow!("Could not intialize JS Context")).unwrap()
     }
 }
 
-fn js_context<'a>() -> &'a JSContextRef {
+fn js_context<'a>() -> &'a rquickjs::Context {
     unsafe {
         if CONTEXT.get().is_none() {
             init()
