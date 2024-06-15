@@ -1,14 +1,11 @@
-use std::{borrow::Cow, collections::HashMap, str::from_utf8};
+use std::{borrow::Cow, str::from_utf8};
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, Context};
 use chrono::{SecondsFormat, Utc};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
-use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
 use rquickjs::{
-    function::{Func, MutFn},
-    markers::Invariant,
-    Context as JSContext, Function,
+    function::MutFn, object, prelude::*, ArrayBuffer, BigInt, Context as JSContext, Ctx, FromJs, Function, IntoJs, Null, Object, Undefined, Value
 };
 
 
@@ -17,19 +14,19 @@ static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js"); // if this pani
 pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
     
     context.with(|this| {
-        let module = build_module_object(this.clone())?;
+        let module = build_module_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         
-        let console = build_console_object(this.clone())?;
-        let var = build_var_object(this.clone())?;
-        let http = build_http_object(this.clone())?;
-        let cfg = build_config_object(this.clone())?;
-        let decoder = build_decoder(context)?;
-        let encoder = build_encoder(context)?;
-        let clock = build_clock(context)?;
-        let mem = build_memory(context)?;
-        let host = build_host_object(this.clone())?;
+        let console = build_console_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let var = build_var_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let http = build_http_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let cfg = build_config_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let decoder = build_decoder(this.clone())?;
+        let encoder = build_encoder(this.clone())?;
+        let clock = build_clock(this.clone())?;
+        let mem = build_memory(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let host = build_host_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
     
-        let global = this.globals()
+        let global = this.globals();
         global.set("console", console)?;
         global.set("module", module)?;
         global.set("Host", host)?;
@@ -41,17 +38,16 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         global.set("__encodeStringToUtf8Buffer", encoder)?;
         global.set("__getTime", clock)?;
     
-        add_host_functions(this.clone())?;
+        add_host_functions(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
     
-        this.eval_global(
-            "script.js",
+        this.eval(
             "globalThis.module = {}; globalThis.module.exports = {}",
         )?;
         // need a *global* var for polyfills to work
-        context.eval_global("script.js", "global = globalThis")?;
-        context.eval_global("script.js", from_utf8(PRELUDE)?)?;
+        this.eval("global = globalThis")?;
+        this.eval(from_utf8(PRELUDE).map_err(|e| rquickjs::Error::Utf8(e))?)?;
 
-        Ok(())
+        Ok::<_, rquickjs::Error>(())
     })?;
     
 
@@ -82,7 +78,7 @@ extern "C" {
     ) -> u64;
 }
 
-fn get_args_as_str(args: &rquickjs::prelude::Rest<rquickjs::Value>) -> anyhow::Result<String> {
+fn get_args_as_str(args: &Rest<Value>) -> anyhow::Result<String> {
     args.iter()
         .map(|arg| {
             arg.as_string()
@@ -94,18 +90,18 @@ fn get_args_as_str(args: &rquickjs::prelude::Rest<rquickjs::Value>) -> anyhow::R
         .context("Failed to convert args to string")
 }
 
-fn to_js_error(cx: rquickjs::Ctx, e: anyhow::Error) -> rquickjs::Error {
+fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
     match e.downcast::<rquickjs::Error>() {
         Ok(e) => e,
-        Err(e) => cx.throw(rquickjs::Value::from_exception(
+        Err(e) => cx.throw(Value::from_exception(
             rquickjs::Exception::from_message(cx.clone(), &e.to_string())
                 .expect("Creating an exception should succeed"),
         )),
     }
 }
 
-fn build_console_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
-        let console = rquickjs::Object::new(this.clone())?;
+fn build_console_object(this: Ctx) -> anyhow::Result<Object> {
+        let console = Object::new(this.clone())?;
         let console_info_callback = Function::new(
             this.clone(),
             MutFn::new(move |cx, args| {
@@ -144,24 +140,24 @@ fn build_console_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object>
     Ok(console)
 }
 
-fn build_module_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
+fn build_module_object(this: Ctx) -> anyhow::Result<Object> {
 
-let exports = rquickjs::Object::new(this.clone())?;
-    let module = rquickjs::Object::new(this.clone())?;
+let exports = Object::new(this.clone())?;
+    let module = Object::new(this.clone())?;
     module.set("exports", exports)?;
     
     Ok(module)
 }
 
-fn build_host_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
-        let host_input_bytes = rquickjs::Function::new(
+fn build_host_object(this: Ctx) -> anyhow::Result<Object> {
+        let host_input_bytes = Function::new(
             this.clone(),
             MutFn::new(move |cx| {
                 let input = unsafe { load_input() };
-                Ok::<_, rquickjs::Error>(rquickjs::ArrayBuffer::new(cx, input))
+                Ok::<_, rquickjs::Error>(ArrayBuffer::new(cx, input))
             }),
         )?;
-        let host_input_string = rquickjs::Function::new(
+        let host_input_string = Function::new(
             this.clone(),
             MutFn::new(move |cx| {
                 let input = unsafe { load_input() };
@@ -169,28 +165,28 @@ fn build_host_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
                 rquickjs::String::from_str(cx, &input_string)
             }),
         )?;
-        let host_output_bytes = rquickjs::Function::new(
+        let host_output_bytes = Function::new(
             this.clone(),
-            MutFn::new(move |cx, args: rquickjs::prelude::Rest<rquickjs::Value>| {
+            MutFn::new(move |cx, args: Rest<Value>| {
                 let output = args.first().unwrap().clone();
-                let output_buffer = rquickjs::ArrayBuffer::from_value(output).unwrap();
+                let output_buffer = ArrayBuffer::from_value(output).unwrap();
                 extism_pdk::output(output_buffer.as_bytes());
-                Ok::<_, rquickjs::Error>(rquickjs::Value::new_bool(cx, true))
+                Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
             }),
         )?;
-        let host_output_string = rquickjs::Function::new(
+        let host_output_string = Function::new(
             this.clone(),
-            MutFn::new(move |cx, args: rquickjs::prelude::Rest<rquickjs::Value>| {
+            MutFn::new(move |cx, args: Rest<Value>| {
                 let output = args.first().unwrap().clone();
                 let output_string = output
                     .as_string()
                     .ok_or(rquickjs::Error::Unknown)?
                     .to_string()?;
                 extism_pdk::output(output_string);
-                Ok::<_, rquickjs::Error>(rquickjs::Value::new_bool(cx, true))
+                Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
             }),
         )?;
-        let host_object = rquickjs::Object::new(this.clone())?;
+        let host_object = Object::new(this.clone())?;
         host_object.set("inputBytes", host_input_bytes)?;
         host_object.set("inputString", host_input_string)?;
         host_object.set("outputBytes", host_output_bytes)?;
@@ -199,33 +195,33 @@ fn build_host_object(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
 }
 
 
-fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
+fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
         let globals = this.globals();
-        let host_object = globals.get::<_, rquickjs::Object>("host")?;
-        let invoke_host = host_object.get::<_, rquickjs::Value>("invokeHost")?;
+        let host_object = globals.get::<_, Object>("host")?;
+        let invoke_host = host_object.get::<_, Value>("invokeHost")?;
         if invoke_host.is_null() || invoke_host.is_undefined() {
-            let host_invoke_func = rquickjs::Function::new(
+            let host_invoke_func = Function::new(
                 this.clone(),
-                move |cx, args: rquickjs::prelude::Rest<rquickjs::Value<'_>>| {
+                move |cx, args: Rest<Value<'_>>| {
                     let func_id = args.first().unwrap().as_int().unwrap() as u32;
                     let len = args.len() - 1;
                     match len {
                         0 => {
                             let result = unsafe { __invokeHostFunc_0_1(func_id) };
 
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         1 => {
                             let ptr = args.get(1).unwrap().as_float().unwrap();
                             let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         2 => {
                             let ptr = args.get(1).unwrap().as_float().unwrap();
                             let ptr2 = args.get(2).unwrap().as_float().unwrap();
                             let result =
                                 unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         3 => {
                             let ptr = args.get(1).unwrap().as_float().unwrap();
@@ -234,7 +230,7 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
                             let result = unsafe {
                                 __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
                             };
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         4 => {
                             let ptr = args.get(1).unwrap().as_float().unwrap();
@@ -250,7 +246,7 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
                                     ptr4 as u64,
                                 )
                             };
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         5 => {
                             let ptr = args.get(1).unwrap().as_float().unwrap();
@@ -268,7 +264,7 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
                                     ptr5 as u64,
                                 )
                             };
-                            Ok(rquickjs::Value::new_float(cx, result as f64))
+                            Ok(Value::new_float(cx, result as f64))
                         }
                         n => Err(to_js_error(
                             cx,
@@ -277,9 +273,9 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
                     }
                 },
             )?;
-            let host_invoke_func0 = rquickjs::Function::new(
+            let host_invoke_func0 = Function::new(
                 this.clone(),
-                move |cx: rquickjs::Ctx, args: rquickjs::prelude::Rest<rquickjs::Value>| {
+                move |cx: Ctx, args: Rest<Value>| {
                     let func_id = args.first().unwrap().as_int().unwrap() as u32;
                     let len = args.len() - 1;
                     match len {
@@ -342,7 +338,7 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
                             ))
                         }
                     }
-                    Ok(rquickjs::Undefined)
+                    Ok(Undefined)
                 },
             )?;
             host_object.set("invokeFunc", host_invoke_func)?;
@@ -351,8 +347,8 @@ fn add_host_functions(this: rquickjs::Ctx<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_var_object(this: rquickjs::Ctx<'_>) -> anyhow::Result<rquickjs::Object> {
-        let var_set = rquickjs::Function::new(this.clone(), MutFn::new(move |cx: rquickjs::Ctx, args: rquickjs::prelude::Rest<rquickjs::Value<'_>>| {
+fn build_var_object(this: Ctx<'_>) -> anyhow::Result<Object> {
+        let var_set = Function::new(this.clone(), MutFn::new(move |cx: Ctx, args: Rest<Value<'_>>| {
             let var_name = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?;
             let data = args.get(1).ok_or_else(||to_js_error(cx.clone(), anyhow!("Expected data argument")))?;
             if data.is_string() {
@@ -367,33 +363,33 @@ fn build_var_object(this: rquickjs::Ctx<'_>) -> anyhow::Result<rquickjs::Object>
                     var::set(var_name_string, data);
                 }
             }
-            Ok::<_, rquickjs::Error>(rquickjs::Undefined)
+            Ok::<_, rquickjs::Error>(Undefined)
         }));
-        let var_get = rquickjs::Function::new(this.clone(), |cx: rquickjs::Ctx, args: rquickjs::prelude::Rest<rquickjs::Value<'_>>| {
+        let var_get = Function::new(this.clone(), |cx: Ctx, args: Rest<Value<'_>>| {
             let var_name = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?.as_string().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument to be a string")))?.to_string()?;
             let data = var::get::<Vec<u8>>(var_name)?;
             match data {
-                Some(d) => Ok(rquickjs::ArrayBuffer::new(cx.clone(), d)?.as_value()),
-                None => Ok(&rquickjs::Null.into_value(cx.clone()))
+                Some(d) => Ok(ArrayBuffer::new(cx.clone(), d)?.as_value()),
+                None => Ok(&Null.into_value(cx.clone()))
             }
         })?;
-        let var_get_str = rquickjs::Function::new(this.clone(), |cx: rquickjs::Ctx, args: rquickjs::prelude::Rest<rquickjs::Value<'_>>| {
+        let var_get_str = Function::new(this.clone(), |cx: Ctx, args: Rest<Value<'_>>| {
             let var_name = args.first().ok_or_else(||to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?.try_into_string()?.to_string()?;
             let data = var::get::<String>(var_name)?;
             match data {
                 Some(d) => Ok(rquickjs::String::from_str(cx.clone(), &d)?.as_value()),
-                None => Ok(&rquickjs::Null.into_value(cx.clone()))
+                None => Ok(&Null.into_value(cx.clone()))
             }
         })?;
-        let var_object = rquickjs::Object::new(this.clone())?;
+        let var_object = Object::new(this.clone())?;
         var_object.set("set", var_set)?;
         var_object.set("getBytex", var_get)?;
         var_object.set("getString", var_get_str)?;
     Ok(var_object)
 }
 
-fn build_http_object<'js>(this: rquickjs::Ctx<'js>) -> anyhow::Result<rquickjs::Object> {
-    let http_req = rquickjs::Function::new(this.clone(), |cx: rquickjs::Ctx<'js>, args: rquickjs::prelude::Rest<rquickjs::Value>| {
+fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let http_req = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
         let req = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected http request argument")))?.clone();
 
         if !req.is_object() {
@@ -401,23 +397,23 @@ fn build_http_object<'js>(this: rquickjs::Ctx<'js>) -> anyhow::Result<rquickjs::
         }
 
         let req = req.into_object().expect("Should be able to convert a request into an object");
-        let url = req.get::<_, rquickjs::Value>("url").context("Http Request should have url property").map_err(|e| to_js_error(cx.clone(), e))?;
+        let url = req.get::<_, Value>("url").context("Http Request should have url property").map_err(|e| to_js_error(cx.clone(), e))?;
 
-        let method_string = match req.get::<_, rquickjs::Value>("method") {
+        let method_string = match req.get::<_, Value>("method") {
             Ok(m) => m.as_string().ok_or(rquickjs::Error::Unknown)?.to_string()?,
             Err(_) => "GET".to_string()
         };
 
         let mut http_req = HttpRequest::new(url.as_string().ok_or(rquickjs::Error::Unknown)?.to_string()?).with_method(method_string);
 
-        let headers = req.get::<_, rquickjs::Value>("headers")?;
+        let headers = req.get::<_, Value>("headers")?;
 
         if !headers.is_null() && !headers.is_undefined() {
             if !headers.is_object() {
                 return Err(to_js_error(cx, anyhow!("Expected headers to be an object")));
             }
             let headers = headers.as_object().expect("Should be able to convert headers to an object");
-            let header_values: rquickjs::object::ObjectIter<rquickjs::Value, rquickjs::Value> = headers.props();
+            let header_values: object::ObjectIter<Value, Value> = headers.props();
             
             for property_result in header_values {
                 let (key, value) = property_result?;
@@ -444,22 +440,22 @@ fn build_http_object<'js>(this: rquickjs::Ctx<'js>) -> anyhow::Result<rquickjs::
         let body = res.body();
         let body = from_utf8(&body).map_err(|e| to_js_error(cx.clone(), anyhow::Error::from(e)))?;
 
-        let resp_obj = rquickjs::Object::new(cx.clone())?;
+        let resp_obj = Object::new(cx.clone())?;
 
         resp_obj.set("body", rquickjs::String::from_str(cx.clone(), body)?.as_value().clone());
 
-        resp_obj.set("status", rquickjs::Value::new_int(cx.clone(), res.status_code() as i32));
+        resp_obj.set("status", Value::new_int(cx.clone(), res.status_code() as i32));
         Ok(resp_obj)
         })?; 
 
-    let http_obj = rquickjs::Object::new(this.clone())?;
+    let http_obj = Object::new(this.clone())?;
     http_obj.set("request", http_req)?;
 
     Ok(http_obj)
 }
 
-fn build_config_object<'js>(this: rquickjs::Ctx<'js>) -> anyhow::Result<rquickjs::Object<'js>> {
-    let config_get = rquickjs::Function::new(this.clone(),  move |cx: rquickjs::Ctx<'js>, args: rquickjs::prelude::Rest<rquickjs::Value<'js>>| -> Result<_, rquickjs::Error > {
+fn build_config_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
+    let config_get = Function::new(this.clone(),  move |cx: Ctx<'js>, args: Rest<Value<'js>>| -> Result<_, rquickjs::Error > {
         let key = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected key argument")))?;
 
         if !key.is_string() {
@@ -470,19 +466,19 @@ fn build_config_object<'js>(this: rquickjs::Ctx<'js>) -> anyhow::Result<rquickjs
 
         let config_val = match config::get(&key) {
             Ok(Some(v)) => rquickjs::String::from_str(cx.clone(), &v)?.as_value().clone(),
-            _ => rquickjs::Value::new_null(cx)
+            _ => Value::new_null(cx)
         };
         Ok(config_val)
     })?;
-    let config_obj = rquickjs::Object::new(this.clone())?;
+    let config_obj = Object::new(this.clone())?;
 
     config_obj.set("get", config_get)?;
 
     Ok(config_obj)
 }
 
-fn build_memory(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
-    let memory_from_buffer = rquickjs::Function::new(this.clone(), |cx: rquickjs::Ctx, args: rquickjs::prelude::Rest<rquickjs::Value>| {
+fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let memory_from_buffer = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
         let data = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected data argument")))?;
         if !data.is_object() {
             return Err(to_js_error(cx, anyhow!("Expected data to be an array buffer")))
@@ -491,22 +487,22 @@ fn build_memory(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
         if !data.is_array_buffer() {
             return Err(to_js_error(cx, anyhow!("Expected data to be an array buffer")))
         }
-        let data = data.as_array_buffer().expect("Should be able to cast data as an array buffer").as_bytes().ok_or_else(|| to_js_error(cx, anyhow!("Problem getting data from the array buffer")))?;
-        let m = extism_pdk::Memory::from_bytes(data).map_err(|e| to_js_error(cx, e))?;
+        let data = data.as_array_buffer().expect("Should be able to cast data as an array buffer").as_bytes().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Problem getting data from the array buffer")))?;
+        let m = extism_pdk::Memory::from_bytes(data).map_err(|e| to_js_error(cx.clone(), e))?;
 
-        let mut mem = rquickjs::Object::new(cx.clone())?;
+        let mem = Object::new(cx.clone())?;
 
             
-            let offset = rquickjs::BigInt::from_u64(cx.clone(), m.offset())?;
-            let len = rquickjs::BigInt::from_u64(cx.clone(), m.len() as u64);
+            let offset = BigInt::from_u64(cx.clone(), m.offset())?;
+            let len = BigInt::from_u64(cx.clone(), m.len() as u64);
             mem.set("offset", offset)?;
             mem.set("len", len)?;
             Ok(mem)
     })?;
-    let memory_find = rquickjs::Function::new(this.clone(), |cx, args: rquickjs::prelude::Rest<rquickjs::Value>| {
-        let ptr = args.first().ok_or_else(|| to_js_error(cx, anyhow!("Expected offset argument")))?;
+    let memory_find = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let ptr = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
         if !ptr.is_number() {
-            return Err(to_js_error(cx, anyhow!("Expected offset to be a number")))
+            return Err(to_js_error(cx.clone(), anyhow!("Expected offset to be a number")))
         }
         let ptr = if ptr.is_int() {
             ptr.as_int().expect("Should be able to cast offset to int") as i64
@@ -516,129 +512,129 @@ fn build_memory(this: rquickjs::Ctx) -> anyhow::Result<rquickjs::Object> {
         let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
             return Err(to_js_error(cx, anyhow!("Offset did not represent a valid block of memory (offset={ptr:x})")))
         };
-        let mem = rquickjs::Object::new(cx.clone())?;
-        let offset = rquickjs::BigInt::from_u64(cx.clone(), m.offset())?;
-        let len = rquickjs::BigInt::from_u64(cx.clone(), m.len() as u64);
+        let mem = Object::new(cx.clone())?;
+        let offset = BigInt::from_u64(cx.clone(), m.offset())?;
+        let len = BigInt::from_u64(cx.clone(), m.len() as u64);
 
         mem.set("offset", offset)?;
         mem.set("len", len)?;
 
         Ok(mem)
     })?;
-    let memory_free = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
-            };
-            if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
-                x.free();
-            }
+    let memory_free = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let ptr = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+        if !ptr.is_number() {
+            return Err(to_js_error(cx.clone(), anyhow!("Expected an offset")))
+        }
+        let ptr = if ptr.is_int() {
+            ptr.as_int().expect("Should be able to cast offset to an int") as i64
+        } else {
+            ptr.as_number().expect("Should be able to cast offset to number") as i64
+        };
 
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let read_bytes = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
-            };
-            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
-                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
-            };
-            let bytes = m.to_vec();
-            Ok(JSValue::ArrayBuffer(bytes))
-        },
-    )?;
+        if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
+            x.free();
+        }
+        Ok(Undefined)
+    } )?;
 
-    let mem_obj = context.object_value()?;
-    mem_obj.set_property("_fromBuffer", memory_from_buffer)?;
-    mem_obj.set_property("_find", memory_find)?;
-    mem_obj.set_property("_free", memory_free)?;
-    mem_obj.set_property("_readBytes", read_bytes)?;
+    let read_bytes = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let ptr = args.first().ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+
+        if !ptr.is_number() {
+            return Err(to_js_error(cx.clone(), anyhow!("Expected an offset")))
+        }
+
+        let ptr = if ptr.is_int() {
+            ptr.as_int().expect("Should be able to cast offset to an int") as i64
+        } else {
+            ptr.as_number().expect("Should be able to cast offset to number") as i64
+        };
+
+        let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+            return Err(to_js_error(cx.clone(), anyhow!("Offset did not represent a valid block of memory (offset={ptr:x})")))
+        };
+
+        let bytes = m.to_vec();
+
+        Ok(ArrayBuffer::new(cx, bytes))
+
+    })?;
+
+    let mem_obj = Object::new(this.clone())?;
+
+    mem_obj.set("_fromBuffer", memory_from_buffer)?;
+    mem_obj.set("_find", memory_find)?;
+    mem_obj.set("_free", memory_free)?;
+    mem_obj.set("_readBytes", read_bytes)?;
 
     Ok(mem_obj)
 }
 
-fn build_clock(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(get_time())
+fn build_clock(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, get_time())
 }
 
-fn build_decoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(decode_utf8_buffer_to_js_string())
+fn build_decoder(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, decode_utf8_buffer_to_js_string())
 }
 
-fn build_encoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(encode_js_string_to_utf8_buffer())
+fn build_encoder(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, encode_js_string_to_utf8_buffer())
 }
 
-fn get_time() -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+fn get_time<'js>() -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<rquickjs::String<'js>>> {
+ MutFn::new(|cx: Ctx<'js>, _args |{
         let now = Utc::now();
         // This format is compatible with JavaScript's Date constructor
         let formatted = now.to_rfc3339_opts(SecondsFormat::Millis, true);
-        Ok(formatted.into())
-    }
+        Ok(rquickjs::String::from_str(cx.clone(), &formatted)?)
+    })
 }
 
-fn decode_utf8_buffer_to_js_string(
-) -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+fn decode_utf8_buffer_to_js_string<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+   MutFn::new( move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
         if args.len() != 5 {
-            return Err(anyhow!("Expecting 5 arguments, received {}", args.len()));
+            return Err(to_js_error(cx,anyhow!("Expecting 5 arguments, received {}", args.len())))
         }
 
-        let buffer: Vec<u8> = args[0].try_into()?;
-        let byte_offset: usize = args[1].try_into()?;
-        let byte_length: usize = args[2].try_into()?;
-        let fatal: bool = args[3].try_into()?;
-        let ignore_bom: bool = args[4].try_into()?;
+        let buffer: Vec<u8> = Vec::from_js(&cx, args.first().expect("Should have a first argument").clone())?;
+        let byte_offset = args[1].as_big_int().expect("Should be able to bet byte_offset as int").clone().to_i64()? as usize;
+        let byte_length = args[2].as_big_int().expect("Should be able to cast byte_length as int").clone().to_i64()? as usize;
+        let fatal = args[3].as_bool().expect("Should be able to cast fatal as bool");
+        let ignore_bom = args[4].as_bool().expect("Should be able to cast ignore_bom as bool");
 
-        let mut view = buffer
-            .get(byte_offset..(byte_offset + byte_length))
-            .ok_or_else(|| {
-                anyhow!("Provided offset and length is not valid for provided buffer")
-            })?;
+        let mut view = buffer.get(byte_offset..(byte_offset + byte_length)).ok_or_else(|| anyhow!("Provided offset and length is not valid for provided buffer"))?;
 
         if !ignore_bom {
             view = match view {
                 // [0xEF, 0xBB, 0xBF] is the UTF-8 BOM which we want to strip
                 [0xEF, 0xBB, 0xBF, rest @ ..] => rest,
                 _ => view,
-            };
+            }
         }
 
-        let str =
-            if fatal {
-                Cow::from(from_utf8(view).map_err(|_| {
-                    JSError::Type("The encoded data was not valid utf-8".to_string())
-                })?)
-            } else {
-                String::from_utf8_lossy(view)
-            };
-        Ok(str.to_string().into())
-    }
+        let str = if fatal {
+            Cow::from(from_utf8(view).map_err(|e| rquickjs::Error::Utf8(e) )?)
+        } else {
+            String::from_utf8_lossy(view)
+        };
+
+        Ok(rquickjs::String::from_str(cx.clone(), &str.to_string())?.into())
+    })
 }
 
-fn encode_js_string_to_utf8_buffer(
-) -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+fn encode_js_string_to_utf8_buffer<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
         if args.len() != 1 {
-            return Err(anyhow!("Expecting 1 argument, got {}", args.len()));
+            return Err(to_js_error(cx, anyhow!("Expecting 1 argument, got {}", args.len())))
         }
 
-        let js_string: String = args[0].try_into()?;
-        Ok(js_string.into_bytes().into())
-    }
+        let js_string = args[0].clone();
+        let rust_string = String::from_js(&cx, js_string)?;
+        let buffer = rust_string.as_bytes();
+        Vec::from_bytes(buffer).unwrap().into_js(&cx)
+    })
 }
