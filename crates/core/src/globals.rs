@@ -42,7 +42,7 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
 
         this.eval("globalThis.module = {}; globalThis.module.exports = {}")?;
         // need a *global* var for polyfills to work
-        this.eval("global = globalThis")?;
+        this.eval("var global = globalThis")?;
         this.eval(from_utf8(PRELUDE).map_err(|e| rquickjs::Error::Utf8(e))?)?;
 
         Ok::<_, rquickjs::Error>(())
@@ -192,7 +192,7 @@ fn build_host_object(this: Ctx) -> anyhow::Result<Object> {
 
 fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
     let globals = this.globals();
-    let host_object = globals.get::<_, Object>("host")?;
+    let host_object = globals.get::<_, Object>("Host")?;
     let invoke_host = host_object.get::<_, Value>("invokeHost")?;
     if invoke_host.is_null() || invoke_host.is_undefined() {
         let host_invoke_func = Function::new(this.clone(), move |cx, args: Rest<Value<'_>>| {
