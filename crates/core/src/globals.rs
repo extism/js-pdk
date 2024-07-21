@@ -25,7 +25,6 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         let clock = build_clock(this.clone())?;
         let mem = build_memory(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let host = build_host_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
-
         let global = this.globals();
         global.set("console", console)?;
         global.set("module", module)?;
@@ -145,7 +144,7 @@ fn build_module_object(this: Ctx) -> anyhow::Result<Object> {
     Ok(module)
 }
 
-fn build_host_object(this: Ctx) -> anyhow::Result<Object> {
+fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
     let host_input_bytes = Function::new(
         this.clone(),
         MutFn::new(move |cx| {
@@ -163,22 +162,22 @@ fn build_host_object(this: Ctx) -> anyhow::Result<Object> {
     )?;
     let host_output_bytes = Function::new(
         this.clone(),
-        MutFn::new(move |cx, args: Rest<Value>| {
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             let output = args.first().unwrap().clone();
             let output_buffer = ArrayBuffer::from_value(output).unwrap();
-            extism_pdk::output(output_buffer.as_bytes());
+            extism_pdk::output(output_buffer.as_bytes()).map_err(|e| to_js_error(cx.clone(), e))?;
             Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
         }),
     )?;
     let host_output_string = Function::new(
         this.clone(),
-        MutFn::new(move |cx, args: Rest<Value>| {
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             let output = args.first().unwrap().clone();
             let output_string = output
                 .as_string()
                 .ok_or(rquickjs::Error::Unknown)?
                 .to_string()?;
-            extism_pdk::output(output_string);
+            extism_pdk::output(output_string).map_err(|e| to_js_error(cx.clone(), e))?;
             Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
         }),
     )?;
@@ -359,7 +358,7 @@ fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
                         "Should be able to convert data to string since data.is_string() is true",
                     )
                     .to_string()?;
-                var::set(var_name_string, data_string);
+                var::set(var_name_string, data_string).map_err(|e| to_js_error(cx.clone(), e))?;
             } else if data.is_object() {
                 let data = data.as_object().expect("Data should be an object");
                 if data.is_array_buffer() {
@@ -379,54 +378,60 @@ fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
                             to_js_error(cx.clone(), anyhow!("Expected var_name arg to be a string"))
                         })?
                         .to_string()?;
-                    var::set(var_name_string, data);
+                    var::set(var_name_string, data).map_err(|e| to_js_error(cx.clone(), e))?;
                 }
             }
             Ok::<_, rquickjs::Error>(Undefined)
         }),
     );
-    let var_get = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value<'js>>| -> Result<Value<'js>, rquickjs::Error> {
-        let var_name = args
-            .first()
-            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
-            .as_string()
-            .ok_or_else(|| {
-                to_js_error(
-                    cx.clone(),
-                    anyhow!("Expected var_name argument to be a string"),
-                )
-            })?
-            .to_string()?;
-        let data = var::get::<Vec<u8>>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
-        match data {
-            Some(d) => {
-                let buffer = ArrayBuffer::new(cx.clone(), d)?;
-                Ok(buffer.as_value().clone())
+    let var_get = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value<'js>>| -> Result<Value<'js>, rquickjs::Error> {
+            let var_name = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
+                .as_string()
+                .ok_or_else(|| {
+                    to_js_error(
+                        cx.clone(),
+                        anyhow!("Expected var_name argument to be a string"),
+                    )
+                })?
+                .to_string()?;
+            let data = var::get::<Vec<u8>>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
+            match data {
+                Some(d) => {
+                    let buffer = ArrayBuffer::new(cx.clone(), d)?;
+                    Ok(buffer.as_value().clone())
+                }
+                None => Ok(Null.into_value(cx.clone())),
             }
-            None => Ok(Null.into_value(cx.clone())),
-        }
-    })?;
-    let var_get_str = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value<'_>>| -> Result<Value<'js>, rquickjs::Error> {
-        let var_name = args
-            .first()
-            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
-            .as_string()
-            .ok_or_else(|| {
-                to_js_error(
-                    cx.clone(),
-                    anyhow!("Expected var_name argument to be a string"),
-                )
-            })?
-            .to_string()?;
-        let data = var::get::<String>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
-        match data {
-            Some(d) => {
-                let s = rquickjs::String::from_str(cx.clone(), &d)?;
-                Ok(s.as_value().clone())
+        },
+    )?;
+    let var_get_str = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value<'_>>| -> Result<Value<'js>, rquickjs::Error> {
+            let var_name = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
+                .as_string()
+                .ok_or_else(|| {
+                    to_js_error(
+                        cx.clone(),
+                        anyhow!("Expected var_name argument to be a string"),
+                    )
+                })?
+                .to_string()?;
+            let data = var::get::<String>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
+            match data {
+                Some(d) => {
+                    let s = rquickjs::String::from_str(cx.clone(), &d)?;
+                    Ok(s.as_value().clone())
+                }
+                None => Ok(Null.into_value(cx.clone())),
             }
-            None => Ok(Null.into_value(cx.clone())),
-        }
-    })?;
+        },
+    )?;
     let var_object = Object::new(this.clone())?;
     var_object.set("set", var_set)?;
     var_object.set("getBytex", var_get)?;
@@ -524,12 +529,12 @@ fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
             rquickjs::String::from_str(cx.clone(), body)?
                 .as_value()
                 .clone(),
-        );
+        )?;
 
         resp_obj.set(
             "status",
             Value::new_int(cx.clone(), res.status_code() as i32),
-        );
+        )?;
         Ok(resp_obj)
     })?;
 
