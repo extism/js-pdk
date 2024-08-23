@@ -76,6 +76,9 @@ Memory.allocFloat64 = function(this: Memory, i) {
 
 Memory.find = function(offset) {
   const memData = Memory._find(offset);
+  if (memData === undefined) {
+    return undefined;  
+  }
   return new MemoryHandle(memData.offset, memData.len);
 };
 

@@ -491,7 +491,7 @@ fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             };
 
             let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
-                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
+                return Ok(JSValue::Undefined);
             };
             let mut mem = HashMap::new();
 
