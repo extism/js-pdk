@@ -617,37 +617,37 @@ fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
         mem.set("len", len)?;
         Ok(mem)
     })?;
-    let memory_find = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
-        let ptr = args
-            .first()
-            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
-        if !ptr.is_number() {
-            return Err(to_js_error(
-                cx.clone(),
-                anyhow!("Expected offset to be a number"),
-            ));
-        }
-        let ptr = if ptr.is_int() {
-            ptr.as_int().expect("Should be able to cast offset to int") as i64
-        } else {
-            ptr.as_number()
-                .expect("Should be able to cast offset to number") as i64
-        };
-        let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
-            return Err(to_js_error(
-                cx,
-                anyhow!("Offset did not represent a valid block of memory (offset={ptr:x})"),
-            ));
-        };
-        let mem = Object::new(cx.clone())?;
-        let offset = BigInt::from_u64(cx.clone(), m.offset())?;
-        let len = BigInt::from_u64(cx.clone(), m.len() as u64);
+    let memory_find = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value>| -> Result<rquickjs::Value, rquickjs::Error> {
+            let ptr = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+            if !ptr.is_number() {
+                return Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expected offset to be a number"),
+                ));
+            }
+            let ptr = if ptr.is_int() {
+                ptr.as_int().expect("Should be able to cast offset to int") as i64
+            } else {
+                ptr.as_number()
+                    .expect("Should be able to cast offset to number") as i64
+            };
+            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+                return Ok(Undefined.into_value(cx.clone()));
+            };
+            let mem = Object::new(cx.clone())?;
+            let offset = BigInt::from_u64(cx.clone(), m.offset())?;
+            let len = BigInt::from_u64(cx.clone(), m.len() as u64);
 
-        mem.set("offset", offset)?;
-        mem.set("len", len)?;
+            mem.set("offset", offset)?;
+            mem.set("len", len)?;
 
-        Ok(mem)
-    })?;
+            Ok(mem.into_value())
+        },
+    )?;
     let memory_free = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
         let ptr = args
             .first()
