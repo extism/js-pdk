@@ -619,7 +619,7 @@ fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
     })?;
     let memory_find = Function::new(
         this.clone(),
-        |cx: Ctx<'js>, args: Rest<Value>| -> Result<rquickjs::Value, rquickjs::Error> {
+        |cx: Ctx<'js>, args: Rest<Value>| -> Result<Value, rquickjs::Error> {
             let ptr = args
                 .first()
                 .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
