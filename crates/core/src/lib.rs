@@ -1,22 +1,20 @@
-use anyhow::anyhow;
 use once_cell::sync::OnceCell;
-use quickjs_wasm_rs::{JSContextRef, JSValue, JSValueRef};
-use rquickjs::function::Args;
-use rquickjs::object::ObjectKeysIter;
-use rquickjs::{qjs::JSValue as RawValue, Context, Runtime, Value};
-use rquickjs::{Ctx, FromJs, Object};
+use rquickjs::{
+    function::Args, object::ObjectKeysIter, Context, Ctx, Function, Object, Runtime, Undefined,
+    Value,
+};
 use std::io;
 use std::io::Read;
 
 mod globals;
 
-static mut CONTEXT: OnceCell<rquickjs::Context> = OnceCell::new();
+static mut CONTEXT: OnceCell<Context> = OnceCell::new();
 static mut CALL_ARGS: Vec<Vec<ArgType>> = vec![];
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
-    let runtime = Runtime::new().unwrap();
-    let context = Context::full(&runtime).unwrap();
+    let runtime = Runtime::new().expect("Couldn't make a runtime");
+    let context = Context::full(&runtime).expect("Couldnt make a context");
     globals::inject_globals(&context).expect("Failed to initialize globals");
 
     let mut code = String::new();
@@ -24,7 +22,7 @@ extern "C" fn init() {
 
     let _ = context.with(|this| {
         this.eval(code)?;
-        Ok::<_, rquickjs::Error>(rquickjs::Undefined)
+        Ok::<_, rquickjs::Error>(Undefined)
     });
 
     unsafe {
@@ -35,29 +33,17 @@ extern "C" fn init() {
     }
 }
 
-fn js_context() -> &'static rquickjs::Context {
+fn js_context() -> &'static Context {
     unsafe {
         if CONTEXT.get().is_none() {
             init()
         }
-
         let context = CONTEXT.get_unchecked();
         context
     }
 }
 
-fn convert_js_value<'js>(ctx: rquickjs::Ctx<'js>, arg: &ArgType) -> Value<'js> {
-    let v = match arg {
-        ArgType::I32(v) => rquickjs::Value::new_int(ctx, *v),
-        ArgType::I64(v) => rquickjs::BigInt::from_i64(ctx, *v).unwrap().into(),
-        ArgType::F32(v) => rquickjs::Value::new_float(ctx, *v as f64),
-        ArgType::F64(v) => rquickjs::Value::new_float(ctx, *v),
-    };
-
-    v
-}
-
-fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, rquickjs::Value<'b>) -> T>(
+fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
     idx: i32,
     conv: F,
 ) -> Result<T, anyhow::Error> {
@@ -85,7 +71,6 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, rquickjs::Value<'b>) -> T>(
                 args
             },
         );
-
         let global = ctx.globals();
 
         let module: Object = global.get("module")?;
@@ -93,8 +78,7 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, rquickjs::Value<'b>) -> T>(
 
         let export_names = export_names(exports.clone()).unwrap();
 
-        let function: rquickjs::Function =
-            exports.get(export_names[idx as usize].as_str()).unwrap();
+        let function: Function = exports.get(export_names[idx as usize].as_str()).unwrap();
 
         let function_invocation_result = function.call_arg(args);
 
@@ -169,28 +153,39 @@ macro_rules! unwrap_value {
 
 #[no_mangle]
 pub extern "C" fn __invoke_i32(idx: i32) -> i32 {
-    unwrap_value!(-1, invoke(idx, |_ctx, r| r.as_number().unwrap() as i32))
+    unwrap_value!(
+        -1,
+        invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as i32)
+    )
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_i64(idx: i32) -> i64 {
     unwrap_value!(
         -1,
-        invoke(idx, |_ctx, r| (r.as_big_int().unwrap())
-            .clone()
-            .to_i64()
-            .unwrap())
+        invoke(idx, |_ctx, r| {
+            let Some(number) = r.as_big_int() else {
+                return 0;
+            };
+            number.clone().to_i64().unwrap_or_default()
+        })
     )
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f64(idx: i32) -> f64 {
-    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_float().unwrap()))
+    unwrap_value!(
+        -1.0,
+        invoke(idx, |_ctx, r| r.as_float().unwrap_or_default())
+    )
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f32(idx: i32) -> f32 {
-    unwrap_value!(-1.0, invoke(idx, |_ctx, r| r.as_number().unwrap() as f32))
+    unwrap_value!(
+        -1.0,
+        invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as f32)
+    )
 }
 
 #[no_mangle]
@@ -198,7 +193,7 @@ pub extern "C" fn __invoke(idx: i32) {
     unwrap_value!((), invoke(idx, |_ctx, _r| ()))
 }
 
-fn export_names(exports: rquickjs::Object) -> anyhow::Result<Vec<String>> {
+fn export_names(exports: Object) -> anyhow::Result<Vec<String>> {
     let mut keys_iter: ObjectKeysIter<String> = exports.keys();
     let mut key = keys_iter.next();
     let mut keys: Vec<String> = vec![];
