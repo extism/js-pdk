@@ -746,20 +746,26 @@ fn decode_utf8_buffer_to_js_string<'js>(
             ));
         }
 
-        let buffer: Vec<u8> = Vec::from_js(
-            &cx,
-            args.first().expect("Should have a first argument").clone(),
-        )?;
-        let byte_offset = args[1]
-            .as_big_int()
-            .expect("Should be able to bet byte_offset as int")
-            .clone()
-            .to_i64()? as usize;
-        let byte_length = args[2]
-            .as_big_int()
-            .expect("Should be able to cast byte_length as int")
-            .clone()
-            .to_i64()? as usize;
+        let js_buffer_value = args.first().expect("Should have a first argument").clone();
+        let buffer: Vec<u8> = if js_buffer_value.is_array() {
+            Vec::from_js(&cx, js_buffer_value)?
+        } else {
+            let Some(array_buffer) = ArrayBuffer::from_value(js_buffer_value) else {
+                Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not cast the buffer arg to an ArrayBuffer"),
+                ))?
+            };
+            let Some(bytes) = array_buffer.as_bytes() else {
+                Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not get the bytes from the array_buffer"),
+                ))?
+            };
+            Vec::from_bytes(bytes).map_err(|e| to_js_error(cx.clone(), e))?
+        };
+        let byte_offset = args[1].as_number().unwrap_or_default() as usize;
+        let byte_length = args[2].as_number().unwrap_or_default() as usize;
         let fatal = args[3]
             .as_bool()
             .expect("Should be able to cast fatal as bool");
