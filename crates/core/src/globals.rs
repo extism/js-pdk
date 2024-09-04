@@ -352,7 +352,7 @@ fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
                         )
                     })?
                     .to_string()?;
-                let data_string = var_name
+                let data_string = data
                     .as_string()
                     .expect(
                         "Should be able to convert data to string since data.is_string() is true",
