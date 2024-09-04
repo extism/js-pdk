@@ -652,12 +652,18 @@ fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
         let ptr = args
             .first()
             .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
-        if !ptr.is_number() {
+        if !ptr.is_number() && ptr.type_of() != rquickjs::Type::BigInt {
             return Err(to_js_error(cx.clone(), anyhow!("Expected an offset")));
         }
         let ptr = if ptr.is_int() {
             ptr.as_int()
                 .expect("Should be able to cast offset to an int") as i64
+        } else if ptr.type_of() == rquickjs::Type::BigInt {
+            ptr.clone()
+                .try_into_big_int()
+                .expect("Should be able to cast offset to big int if it's type_of == BigInt")
+                .to_i64()
+                .expect("Should be able to cast BigInto to i64")
         } else {
             ptr.as_number()
                 .expect("Should be able to cast offset to number") as i64
