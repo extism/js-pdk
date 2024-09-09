@@ -155,11 +155,44 @@ fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
             Ok(JSValue::Bool(true))
         },
     )?;
+
+    let to_base64 = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let data = args.first().unwrap();
+            if !data.is_array_buffer() {
+                return Err(anyhow!("expected array buffer"));
+            }
+
+            use base64::prelude::*;
+            let bytes = data.as_bytes()?;
+            let as_string = BASE64_STANDARD.encode(bytes);
+
+            Ok(JSValue::String(as_string))
+        },
+    )?;
+
+    let from_base64 = context.wrap_callback(
+        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+            let data = args.first().unwrap();
+            if !data.is_str() {
+                return Err(anyhow!("expected string"));
+            }
+
+            use base64::prelude::*;
+            let string = data.as_str()?;
+            let bytes = BASE64_STANDARD.decode(string)?;
+
+            Ok(JSValue::ArrayBuffer(bytes))
+        },
+    )?;
+
     let host_object = context.object_value()?;
     host_object.set_property("inputBytes", host_input_bytes)?;
     host_object.set_property("inputString", host_input_string)?;
     host_object.set_property("outputBytes", host_output_bytes)?;
     host_object.set_property("outputString", host_output_string)?;
+    host_object.set_property("arrayBufferToBase64", to_base64)?;
+    host_object.set_property("base64ToArrayBuffer", from_base64)?;
     Ok(host_object)
 }
 

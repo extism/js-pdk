@@ -12,12 +12,14 @@ declare global {
     outputBytes(output: ArrayBufferLike): boolean;
     outputString(output: string): boolean;
     getFunctions(): import("extism:host").user;
+    arrayBufferToBase64(input: ArrayBuffer): string;
+    base64ToArrayBuffer(input: string): ArrayBuffer;
   }
 
   var Host: Host;
 }
 
-Host.getFunctions = function () {
+Host.getFunctions = function() {
   function createInvoke(id: number, results: number) {
     if (results === 0) {
       return Host.invokeFunc0.bind(null, id);
@@ -32,4 +34,4 @@ Host.getFunctions = function () {
   }, {});
 };
 
-export {};
+export { };
