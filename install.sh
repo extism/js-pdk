@@ -1,4 +1,5 @@
-set -e
+#!/bin/bash
+set -eou pipefail
 
 # Get the latest release
 RELEASE_API_URL="https://api.github.com/repos/extism/js-pdk/releases/latest"
