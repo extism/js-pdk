@@ -41,6 +41,9 @@ is_valid_install_dir() {
   [[ ":$PATH:" == *":$1:"* ]] && [ -w "$1" ]
 }
 
+INSTALL_DIR=""
+USE_SUDO=""
+
 # Check for common user-writable directories in PATH
 for dir in "$HOME/bin" "$HOME/.local/bin" "$HOME/.bin"; do
   if is_valid_install_dir "$dir"; then
