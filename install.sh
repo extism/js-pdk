@@ -1,4 +1,23 @@
-set -e
+#!/bin/bash
+set -eou pipefail
+
+# Get the latest release
+RELEASE_API_URL="https://api.github.com/repos/extism/js-pdk/releases/latest"
+response=$(curl -s "$RELEASE_API_URL")
+if [ -z "$response" ]; then
+    echo "Error: Failed to fetch the latest release from GitHub API."
+    exit 1
+fi
+
+# try to parse tag
+LATEST_TAG=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+
+if [ -z "$LATEST_TAG" ]; then
+    echo "Error: Could not find the latest release tag."
+    exit 1
+fi
+
+echo "Installing extism-js release with tag: $LATEST_TAG"
 
 OS=''
 case `uname` in
@@ -14,18 +33,35 @@ case "$ARCH" in
   *)                echo "unknown arch: $ARCH" && exit 1 ;;
 esac
 
-export TAG="v1.1.1"
-export BINARYEN_TAG="version_116"
+BINARYEN_TAG="version_116"
+DOWNLOAD_URL="https://github.com/extism/js-pdk/releases/download/$LATEST_TAG/extism-js-$ARCH-$OS-$LATEST_TAG.gz"
 
-curl -L -O "https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
+# Function to check if a directory is in PATH and writable
+is_valid_install_dir() {
+  [[ ":$PATH:" == *":$1:"* ]] && [ -w "$1" ]
+}
 
-gunzip extism-js*.gz
-sudo mkdir -p /usr/local/bin/
-sudo mv extism-js-* /usr/local/bin/extism-js
-chmod +x /usr/local/bin/extism-js
+INSTALL_DIR=""
+USE_SUDO=""
+
+# Check for common user-writable directories in PATH
+for dir in "$HOME/bin" "$HOME/.local/bin" "$HOME/.bin"; do
+  if is_valid_install_dir "$dir"; then
+    INSTALL_DIR="$dir"
+    break
+  fi
+done
+
+# If no user-writable directory found, use system directory
+if [ -z "$INSTALL_DIR" ]; then
+  INSTALL_DIR="/usr/local/bin"
+  USE_SUDO=1
+fi
+
+echo "Checking for binaryen..."
 
 if ! which "wasm-merge" > /dev/null || ! which "wasm-opt" > /dev/null; then
-  echo 'Missing binaryen tool(s)'
+  echo "Missing binaryen tool(s)"
 
   # binaryen use arm64 instead where as extism-js uses aarch64 for release file naming
   case "$ARCH" in
@@ -68,5 +104,33 @@ if ! which "wasm-merge" > /dev/null || ! which "wasm-opt" > /dev/null; then
     fi
   fi
 else
-  echo "wasm-merge and wasm-opt are already installed"
+  echo "binaryen tools are already installed"
 fi
+
+TARGET="$INSTALL_DIR/extism-js"
+echo "Downloading extism-js from: $DOWNLOAD_URL"
+
+if curl -fsSL --output /tmp/extism-js.gz "$DOWNLOAD_URL"; then
+  gunzip /tmp/extism-js.gz
+
+  if [ "$USE_SUDO" = "1" ]; then
+    echo "No user-writable bin directory found in PATH. Using sudo to install in $INSTALL_DIR"
+    sudo mv /tmp/extism-js "$TARGET"
+  else
+    mv /tmp/extism-js "$TARGET"
+  fi
+  chmod +x "$TARGET"
+
+  echo "Successfully installed extism-js to $TARGET"
+else
+  echo "Failed to download or install extism-js. Curl exit code: $?"
+  exit
+fi
+
+# Warn the user if the chosen path is not in the path
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+  echo "Note: $INSTALL_DIR is not in your PATH. You may need to add it to your PATH or use the full path to run extism-js."
+fi
+
+echo "Installation complete. Try to run 'extism-js --version' to ensure it was correctly installed."
+
