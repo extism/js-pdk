@@ -9,14 +9,14 @@ if [ -z "$response" ]; then
 fi
 
 # try to parse tag
-latest_tag=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+LATEST_TAG=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
-if [ -z "$latest_tag" ]; then
+if [ -z "$LATEST_TAG" ]; then
     echo "Error: Could not find the latest release tag."
     exit 1
 fi
 
-echo "Installing extism-js release with tag: $latest_tag"
+echo "Installing extism-js release with tag: $LATEST_TAG"
 
 OS=''
 case `uname` in
@@ -33,7 +33,7 @@ case "$ARCH" in
 esac
 
 BINARYEN_TAG="version_116"
-DOWNLOAD_URL="https://github.com/extism/js-pdk/releases/download/$TAG/extism-js-$ARCH-$OS-$TAG.gz"
+DOWNLOAD_URL="https://github.com/extism/js-pdk/releases/download/$LATEST_TAG/extism-js-$ARCH-$OS-$LATEST_TAG.gz"
 
 # Function to check if a directory is in PATH and writable
 is_valid_install_dir() {

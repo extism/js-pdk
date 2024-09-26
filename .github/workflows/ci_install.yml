@@ -17,7 +17,7 @@ jobs:
 
     - name: Test Install Script (Linux)
       run: |
-        sh install.sh
+        ./install.sh
         extism-js --version
       if: runner.os != 'Windows'
 
