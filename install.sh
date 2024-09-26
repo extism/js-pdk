@@ -113,7 +113,7 @@ if curl -fsSL --output /tmp/extism-js.gz "$DOWNLOAD_URL"; then
     echo "No user-writable bin directory found in PATH. Using sudo to install in $INSTALL_DIR"
     sudo mv /tmp/extism-js "$TARGET"
   else
-    cp /tmp/extism-js "$TARGET"
+    mv /tmp/extism-js "$TARGET"
   fi
   chmod +x "$TARGET"
 
