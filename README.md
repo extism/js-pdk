@@ -26,7 +26,7 @@ We release the compiler as native binaries you can download and run. Check the [
 
 ```bash
 curl -O https://raw.githubusercontent.com/extism/js-pdk/main/install.sh
-sh install.sh
+bash install.sh
 ```
 
 ### Windows
@@ -46,17 +46,26 @@ This will install extism-js and binaryen dependency under `Program File` folder 
 > are required as a dependency. We will try to package this up eventually but for now it must be reachable
 > on your machine. You can install on mac with `brew install binaryen` or see their [releases page](https://github.com/WebAssembly/binaryen/releases).
 
-Then run command with no args to see the help:
+Then run command with `-h` to see the help:
 
 ```
-extism-js
-error: The following required arguments were not provided:
-    <input-js>
+extism-js 1.1.1
+Extism JavaScript PDK Plugin Compiler
 
 USAGE:
-    extism-js <input-js> -i <interface-file> -o <output>
+    extism-js [FLAGS] [OPTIONS] <input-js>
 
-For more information try --help
+FLAGS:
+    -h, --help        Prints help information
+        --skip-opt    Skip final optimization pass
+    -V, --version     Prints version information
+
+OPTIONS:
+    -i <interface-file>         [default: index.d.ts]
+    -o <output>                 [default: index.wasm]
+
+ARGS:
+    <input-js>
 ```
 
 > **Note**: If you are using mac, you may need to tell your security system this unsigned binary is fine. If you think this is dangerous, or can't get it to work, see the "compile from source" section below.

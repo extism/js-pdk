@@ -25,6 +25,7 @@ fn main() -> Result<()> {
         .init();
 
     let opts = Options::from_args();
+
     if opts.core {
         opt::Optimizer::new(CORE)
             .wizen(true)
@@ -120,7 +121,9 @@ fn main() -> Result<()> {
         bail!("wasm-merge failed. Couldn't merge shim");
     }
 
-    opt::optimize_wasm_file(opts.output)?;
+    if !opts.skip_opt {
+        opt::optimize_wasm_file(opts.output)?;
+    }
 
     Ok(())
 }

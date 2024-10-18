@@ -181,11 +181,75 @@ fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
             Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
         }),
     )?;
+
+    let to_base64 = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
+            let data = args.first().unwrap();
+            if !data.is_array() {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expect an array buffer"),
+                ));
+            }
+
+            let Some(data) = data.as_array() else {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not convert arg to array buffer"),
+                ));
+            };
+
+            if !data.is_array_buffer() {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expected an array buffer"),
+                ));
+            }
+
+            let Some(data) = data.as_array_buffer() else {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not convert the array to an arrayBuffer"),
+                ));
+            };
+            use base64::prelude::*;
+            let bytes = data
+                .as_bytes()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Could not convert to bytes")))?;
+            let as_string = BASE64_STANDARD.encode(bytes);
+
+            rquickjs::String::from_str(cx.clone(), &as_string)
+        }),
+    )?;
+
+    let from_base64 = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
+            let data = args.first().unwrap();
+            if !data.is_string() {
+                return Err(to_js_error(cx.clone(), anyhow!("expected string")));
+            }
+
+            use base64::prelude::*;
+            let string = data.as_string().ok_or_else(|| {
+                to_js_error(cx.clone(), anyhow!("Could not convert value into string"))
+            })?;
+            let string = string.to_string()?;
+            let bytes = BASE64_STANDARD
+                .decode(string)
+                .map_err(|e| to_js_error(cx.clone(), e.into()))?;
+            ArrayBuffer::new(cx.clone(), bytes)
+        }),
+    )?;
+
     let host_object = Object::new(this.clone())?;
     host_object.set("inputBytes", host_input_bytes)?;
     host_object.set("inputString", host_input_string)?;
     host_object.set("outputBytes", host_output_bytes)?;
     host_object.set("outputString", host_output_string)?;
+    host_object.set("arrayBufferToBase64", to_base64)?;
+    host_object.set("base64ToArrayBuffer", from_base64)?;
     Ok(host_object)
 }
 
