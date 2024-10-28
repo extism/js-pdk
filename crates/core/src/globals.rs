@@ -1,46 +1,51 @@
-use std::{borrow::Cow, collections::HashMap, str::from_utf8};
+use std::{borrow::Cow, str::from_utf8};
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, Context};
 use chrono::{SecondsFormat, Utc};
 use extism_pdk::extism::load_input;
 use extism_pdk::*;
-use quickjs_wasm_rs::{JSContextRef, JSError, JSValue, JSValueRef};
+use rquickjs::{
+    function::MutFn, object, prelude::*, ArrayBuffer, BigInt, Context as JSContext, Ctx, FromJs,
+    Function, IntoJs, Null, Object, Undefined, Value,
+};
 
 static PRELUDE: &[u8] = include_bytes!("prelude/dist/index.js"); // if this panics, run `make` from the root
 
-pub fn inject_globals(context: &JSContextRef) -> anyhow::Result<()> {
-    let module = build_module_object(context)?;
-    let console = build_console_object(context)?;
-    let var = build_var_object(context)?;
-    let http = build_http_object(context)?;
-    let cfg = build_config_object(context)?;
-    let decoder = build_decoder(context)?;
-    let encoder = build_encoder(context)?;
-    let clock = build_clock(context)?;
-    let mem = build_memory(context)?;
-    let host = build_host_object(context)?;
+pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
+    context.with(|this| {
+        let module = build_module_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
 
-    let global = context.global_object()?;
-    global.set_property("console", console)?;
-    global.set_property("module", module)?;
-    global.set_property("Host", host)?;
-    global.set_property("Var", var)?;
-    global.set_property("Http", http)?;
-    global.set_property("Config", cfg)?;
-    global.set_property("Memory", mem)?;
-    global.set_property("__decodeUtf8BufferToString", decoder)?;
-    global.set_property("__encodeStringToUtf8Buffer", encoder)?;
-    global.set_property("__getTime", clock)?;
+        let console =
+            build_console_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let var = build_var_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let http = build_http_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let cfg = build_config_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let decoder = build_decoder(this.clone())?;
+        let encoder = build_encoder(this.clone())?;
+        let clock = build_clock(this.clone())?;
+        let mem = build_memory(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let host = build_host_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let global = this.globals();
+        global.set("console", console)?;
+        global.set("module", module)?;
+        global.set("Host", host)?;
+        global.set("Var", var)?;
+        global.set("Http", http)?;
+        global.set("Config", cfg)?;
+        global.set("Memory", mem)?;
+        global.set("__decodeUtf8BufferToString", decoder)?;
+        global.set("__encodeStringToUtf8Buffer", encoder)?;
+        global.set("__getTime", clock)?;
 
-    add_host_functions(context)?;
+        add_host_functions(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
 
-    context.eval_global(
-        "script.js",
-        "globalThis.module = {}; globalThis.module.exports = {}",
-    )?;
-    // need a *global* var for polyfills to work
-    context.eval_global("script.js", "global = globalThis")?;
-    context.eval_global("script.js", from_utf8(PRELUDE)?)?;
+        this.eval("globalThis.module = {}; globalThis.module.exports = {}")?;
+        // need a *global* var for polyfills to work
+        this.eval("var global = globalThis")?;
+        this.eval(from_utf8(PRELUDE).map_err(|e| rquickjs::Error::Utf8(e))?)?;
+
+        Ok::<_, rquickjs::Error>(())
+    })?;
 
     Ok(())
 }
@@ -69,587 +74,817 @@ extern "C" {
     ) -> u64;
 }
 
-fn get_args_as_str(args: &[JSValueRef]) -> anyhow::Result<String> {
+fn get_args_as_str(args: &Rest<Value>) -> anyhow::Result<String> {
     args.iter()
-        .map(|arg| arg.as_str())
-        .collect::<Result<Vec<&str>, _>>()
+        .map(|arg| {
+            arg.as_string()
+                .ok_or(rquickjs::Error::Unknown)
+                .and_then(|s| s.to_string())
+        })
+        .collect::<Result<Vec<String>, _>>()
         .map(|vec| vec.join(" "))
         .context("Failed to convert args to string")
 }
 
-fn build_console_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let console_debug_callback = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = get_args_as_str(args)?;
-            debug!("{}", stmt);
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let console_info_callback = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = get_args_as_str(args)?;
-            info!("{}", stmt);
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let console_warn_callback = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = get_args_as_str(args)?;
-            warn!("{}", stmt);
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let console_error_callback = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let stmt = get_args_as_str(args)?;
-            error!("{}", stmt);
-            Ok(JSValue::Undefined)
-        },
-    )?;
-
-    let console_object = context.object_value()?;
-
-    // alias for console.info
-    console_object.set_property("log", console_info_callback)?;
-
-    console_object.set_property("debug", console_debug_callback)?;
-    console_object.set_property("info", console_info_callback)?;
-    console_object.set_property("warn", console_warn_callback)?;
-    console_object.set_property("error", console_error_callback)?;
-
-    Ok(console_object)
+fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
+    match e.downcast::<rquickjs::Error>() {
+        Ok(e) => e,
+        Err(e) => cx.throw(Value::from_exception(
+            rquickjs::Exception::from_message(cx.clone(), &e.to_string())
+                .expect("Creating an exception should succeed"),
+        )),
+    }
 }
 
-fn build_module_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let exports = context.object_value()?;
-    let module_obj = context.object_value()?;
-    module_obj.set_property("exports", exports)?;
-    Ok(module_obj)
+fn build_console_object(this: Ctx) -> anyhow::Result<Object> {
+    let console = Object::new(this.clone())?;
+    let console_info_callback = Function::new(
+        this.clone(),
+        MutFn::new(move |cx, args| {
+            let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
+            info!("{}", statement);
+            Ok::<_, rquickjs::Error>(())
+        }),
+    )?;
+    console.set("log", console_info_callback.clone())?;
+    console.set("info", console_info_callback)?;
+
+    console.set(
+        "error",
+        Function::new(
+            this.clone(),
+            MutFn::new(move |cx, args| {
+                let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
+                warn!("{}", statement);
+                Ok::<_, rquickjs::Error>(())
+            }),
+        ),
+    )?;
+
+    console.set(
+        "debug",
+        Function::new(
+            this.clone(),
+            MutFn::new(move |cx, args| {
+                let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
+                debug!("{}", &statement);
+                Ok::<_, rquickjs::Error>(())
+            }),
+        ),
+    )?;
+
+    Ok(console)
 }
 
-fn build_host_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let host_input_bytes = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+fn build_module_object(this: Ctx) -> anyhow::Result<Object> {
+    let exports = Object::new(this.clone())?;
+    let module = Object::new(this.clone())?;
+    module.set("exports", exports)?;
+
+    Ok(module)
+}
+
+fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let host_input_bytes = Function::new(
+        this.clone(),
+        MutFn::new(move |cx| {
             let input = unsafe { load_input() };
-            Ok(JSValue::ArrayBuffer(input))
-        },
+            Ok::<_, rquickjs::Error>(ArrayBuffer::new(cx, input))
+        }),
     )?;
-    let host_input_string = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+    let host_input_string = Function::new(
+        this.clone(),
+        MutFn::new(move |cx| {
             let input = unsafe { load_input() };
-            let string = String::from_utf8(input)?;
-            Ok(JSValue::String(string))
-        },
+            let input_string = String::from_utf8(input)?;
+            rquickjs::String::from_str(cx, &input_string)
+        }),
     )?;
-    let host_output_bytes = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let output = args.first().unwrap();
-            extism_pdk::output(output.as_bytes()?)?;
-            Ok(JSValue::Bool(true))
-        },
+    let host_output_bytes = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
+            let output = args.first().unwrap().clone();
+            let output_buffer = ArrayBuffer::from_value(output).unwrap();
+            extism_pdk::output(output_buffer.as_bytes()).map_err(|e| to_js_error(cx.clone(), e))?;
+            Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
+        }),
     )?;
-    let host_output_string = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let output = args.first().unwrap();
-            extism_pdk::output(output.as_str()?)?;
-            Ok(JSValue::Bool(true))
-        },
+    let host_output_string = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
+            let output = args.first().unwrap().clone();
+            let output_string = output
+                .as_string()
+                .ok_or(rquickjs::Error::Unknown)?
+                .to_string()?;
+            extism_pdk::output(output_string).map_err(|e| to_js_error(cx.clone(), e))?;
+            Ok::<_, rquickjs::Error>(Value::new_bool(cx, true))
+        }),
     )?;
 
-    let to_base64 = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+    let to_base64 = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             let data = args.first().unwrap();
-            if !data.is_array_buffer() {
-                return Err(anyhow!("expected array buffer"));
+            if !data.is_array() {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expect an array buffer"),
+                ));
             }
 
+            let Some(data) = data.as_array() else {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not convert arg to array buffer"),
+                ));
+            };
+
+            if !data.is_array_buffer() {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expected an array buffer"),
+                ));
+            }
+
+            let Some(data) = data.as_array_buffer() else {
+                return Err::<_, rquickjs::Error>(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not convert the array to an arrayBuffer"),
+                ));
+            };
             use base64::prelude::*;
-            let bytes = data.as_bytes()?;
+            let bytes = data
+                .as_bytes()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Could not convert to bytes")))?;
             let as_string = BASE64_STANDARD.encode(bytes);
 
-            Ok(JSValue::String(as_string))
-        },
+            rquickjs::String::from_str(cx.clone(), &as_string)
+        }),
     )?;
 
-    let from_base64 = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+    let from_base64 = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             let data = args.first().unwrap();
-            if !data.is_str() {
-                return Err(anyhow!("expected string"));
+            if !data.is_string() {
+                return Err(to_js_error(cx.clone(), anyhow!("expected string")));
             }
 
             use base64::prelude::*;
-            let string = data.as_str()?;
-            let bytes = BASE64_STANDARD.decode(string)?;
-
-            Ok(JSValue::ArrayBuffer(bytes))
-        },
+            let string = data.as_string().ok_or_else(|| {
+                to_js_error(cx.clone(), anyhow!("Could not convert value into string"))
+            })?;
+            let string = string.to_string()?;
+            let bytes = BASE64_STANDARD
+                .decode(string)
+                .map_err(|e| to_js_error(cx.clone(), e.into()))?;
+            ArrayBuffer::new(cx.clone(), bytes)
+        }),
     )?;
 
-    let host_object = context.object_value()?;
-    host_object.set_property("inputBytes", host_input_bytes)?;
-    host_object.set_property("inputString", host_input_string)?;
-    host_object.set_property("outputBytes", host_output_bytes)?;
-    host_object.set_property("outputString", host_output_string)?;
-    host_object.set_property("arrayBufferToBase64", to_base64)?;
-    host_object.set_property("base64ToArrayBuffer", from_base64)?;
+    let host_object = Object::new(this.clone())?;
+    host_object.set("inputBytes", host_input_bytes)?;
+    host_object.set("inputString", host_input_string)?;
+    host_object.set("outputBytes", host_output_bytes)?;
+    host_object.set("outputString", host_output_string)?;
+    host_object.set("arrayBufferToBase64", to_base64)?;
+    host_object.set("base64ToArrayBuffer", from_base64)?;
     Ok(host_object)
 }
 
-fn add_host_functions(context: &JSContextRef) -> anyhow::Result<()> {
-    let global = context.global_object()?;
-    if global
-        .get_property("Host")?
-        .get_property("invokeHost")?
-        .is_null_or_undefined()
-    {
-        let host_invoke_func = context.wrap_callback(
-            |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-                let func_id = args.first().unwrap().as_u32_unchecked();
-                let len = args.len() - 1;
-                match len {
-                    0 => {
-                        let result = unsafe { __invokeHostFunc_0_1(func_id) };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    1 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    2 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let result =
-                            unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    3 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        let result = unsafe {
-                            __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
-                        };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    4 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
-                        let result = unsafe {
-                            __invokeHostFunc_4_1(
-                                func_id,
-                                ptr as u64,
-                                ptr2 as u64,
-                                ptr3 as u64,
-                                ptr4 as u64,
-                            )
-                        };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    5 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
-                        let ptr5 = args.get(5).unwrap().as_f64_unchecked();
-                        let result = unsafe {
-                            __invokeHostFunc_5_1(
-                                func_id,
-                                ptr as u64,
-                                ptr2 as u64,
-                                ptr3 as u64,
-                                ptr4 as u64,
-                                ptr5 as u64,
-                            )
-                        };
-                        Ok(JSValue::Float(result as f64))
-                    }
-                    n => anyhow::bail!("__invokeHostFunc with {n} parameters is not implemented"),
-                }
-            },
-        )?;
-        let host_invoke_func0 = context.wrap_callback(
-            |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-                let func_id = args.first().unwrap().as_u32_unchecked();
-                let len = args.len() - 1;
-                match len {
-                    0 => {
-                        unsafe { __invokeHostFunc_0_0(func_id) };
-                    }
-                    1 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
-                    }
-                    2 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
-                    }
-                    3 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        unsafe {
-                            __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
-                        };
-                    }
-                    4 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
-                        unsafe {
-                            __invokeHostFunc_4_0(
-                                func_id,
-                                ptr as u64,
-                                ptr2 as u64,
-                                ptr3 as u64,
-                                ptr4 as u64,
-                            )
-                        };
-                    }
-                    5 => {
-                        let ptr = args.get(1).unwrap().as_f64_unchecked();
-                        let ptr2 = args.get(2).unwrap().as_f64_unchecked();
-                        let ptr3 = args.get(3).unwrap().as_f64_unchecked();
-                        let ptr4 = args.get(4).unwrap().as_f64_unchecked();
-                        let ptr5 = args.get(5).unwrap().as_f64_unchecked();
-                        unsafe {
-                            __invokeHostFunc_5_0(
-                                func_id,
-                                ptr as u64,
-                                ptr2 as u64,
-                                ptr3 as u64,
-                                ptr4 as u64,
-                                ptr5 as u64,
-                            )
-                        };
-                    }
-                    n => anyhow::bail!("__invokeHostFunc0 with {n} parameters is not implemented"),
-                }
+fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
+    let globals = this.globals();
+    let host_object = globals.get::<_, Object>("Host")?;
+    let invoke_host = host_object.get::<_, Value>("invokeHost")?;
+    if invoke_host.is_null() || invoke_host.is_undefined() {
+        let host_invoke_func = Function::new(this.clone(), move |cx, args: Rest<Value<'_>>| {
+            let func_id = args.first().unwrap().as_int().unwrap() as u32;
+            let len = args.len() - 1;
+            match len {
+                0 => {
+                    let result = unsafe { __invokeHostFunc_0_1(func_id) };
 
-                Ok(JSValue::Undefined)
-            },
-        )?;
-
-        let host_object = context.global_object()?.get_property("Host")?;
-        host_object.set_property("invokeFunc", host_invoke_func)?;
-        host_object.set_property("invokeFunc0", host_invoke_func0)?;
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                1 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                2 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let result = unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                3 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let result = unsafe {
+                        __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
+                    };
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                4 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
+                    let result = unsafe {
+                        __invokeHostFunc_4_1(
+                            func_id,
+                            ptr as u64,
+                            ptr2 as u64,
+                            ptr3 as u64,
+                            ptr4 as u64,
+                        )
+                    };
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                5 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
+                    let ptr5 = args.get(5).unwrap().as_float().unwrap();
+                    let result = unsafe {
+                        __invokeHostFunc_5_1(
+                            func_id,
+                            ptr as u64,
+                            ptr2 as u64,
+                            ptr3 as u64,
+                            ptr4 as u64,
+                            ptr5 as u64,
+                        )
+                    };
+                    Ok(Value::new_float(cx, result as f64))
+                }
+                n => Err(to_js_error(
+                    cx,
+                    anyhow!("__invokeHostFunc with {n} parameters is not implemented"),
+                )),
+            }
+        })?;
+        let host_invoke_func0 = Function::new(this.clone(), move |cx: Ctx, args: Rest<Value>| {
+            let func_id = args.first().unwrap().as_int().unwrap() as u32;
+            let len = args.len() - 1;
+            match len {
+                0 => {
+                    unsafe { __invokeHostFunc_0_0(func_id) };
+                }
+                1 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
+                }
+                2 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
+                }
+                3 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    unsafe { __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64) };
+                }
+                4 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
+                    unsafe {
+                        __invokeHostFunc_4_0(
+                            func_id,
+                            ptr as u64,
+                            ptr2 as u64,
+                            ptr3 as u64,
+                            ptr4 as u64,
+                        )
+                    };
+                }
+                5 => {
+                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
+                    let ptr5 = args.get(5).unwrap().as_float().unwrap();
+                    unsafe {
+                        __invokeHostFunc_5_0(
+                            func_id,
+                            ptr as u64,
+                            ptr2 as u64,
+                            ptr3 as u64,
+                            ptr4 as u64,
+                            ptr5 as u64,
+                        )
+                    };
+                }
+                n => {
+                    return Err(to_js_error(
+                        cx,
+                        anyhow!("__invokeHostFunc with {n} parameters is not implemented"),
+                    ))
+                }
+            }
+            Ok(Undefined)
+        })?;
+        host_object.set("invokeFunc", host_invoke_func)?;
+        host_object.set("invokeFunc0", host_invoke_func0)?;
     }
-
     Ok(())
 }
 
-fn build_var_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let var_set = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
-            let data = args.get(1).ok_or(anyhow!("Expected data argument"))?;
-
-            if data.is_str() {
-                var::set(var_name.as_str()?, data.as_str()?)?;
-            } else if data.is_array_buffer() {
-                var::set(var_name.as_str()?, data.as_bytes()?)?;
+fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let var_set = Function::new(
+        this.clone(),
+        MutFn::new(move |cx: Ctx, args: Rest<Value<'_>>| {
+            let var_name = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?;
+            let data = args
+                .get(1)
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected data argument")))?;
+            if data.is_string() {
+                let var_name_string = var_name
+                    .as_string()
+                    .ok_or_else(|| {
+                        to_js_error(
+                            cx.clone(),
+                            anyhow!("Expected var_name value to be a string"),
+                        )
+                    })?
+                    .to_string()?;
+                let data_string = data
+                    .as_string()
+                    .expect(
+                        "Should be able to convert data to string since data.is_string() is true",
+                    )
+                    .to_string()?;
+                var::set(var_name_string, data_string).map_err(|e| to_js_error(cx.clone(), e))?;
+            } else if data.is_object() {
+                let data = data.as_object().expect("Data should be an object");
+                if data.is_array_buffer() {
+                    let data = data
+                        .as_array_buffer()
+                        .expect("Data should be an array buffer")
+                        .as_bytes()
+                        .ok_or_else(|| {
+                            to_js_error(
+                                cx.clone(),
+                                anyhow!("Could not get bytes from array buffer"),
+                            )
+                        })?;
+                    let var_name_string = var_name
+                        .as_string()
+                        .ok_or_else(|| {
+                            to_js_error(cx.clone(), anyhow!("Expected var_name arg to be a string"))
+                        })?
+                        .to_string()?;
+                    var::set(var_name_string, data).map_err(|e| to_js_error(cx.clone(), e))?;
+                }
             }
-
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let var_get = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
-            let data = var::get::<Vec<u8>>(var_name.as_str()?)?;
+            Ok::<_, rquickjs::Error>(Undefined)
+        }),
+    );
+    let var_get = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value<'js>>| -> Result<Value<'js>, rquickjs::Error> {
+            let var_name = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
+                .as_string()
+                .ok_or_else(|| {
+                    to_js_error(
+                        cx.clone(),
+                        anyhow!("Expected var_name argument to be a string"),
+                    )
+                })?
+                .to_string()?;
+            let data = var::get::<Vec<u8>>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
             match data {
-                Some(d) => Ok(JSValue::ArrayBuffer(d)),
-                None => Ok(JSValue::Null),
+                Some(d) => {
+                    let buffer = ArrayBuffer::new(cx.clone(), d)?;
+                    Ok(buffer.as_value().clone())
+                }
+                None => Ok(Null.into_value(cx.clone())),
             }
         },
     )?;
-
-    let var_get_str = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let var_name = args.first().ok_or(anyhow!("Expected var_name argument"))?;
-            let data = var::get::<String>(var_name.as_str()?)?;
+    let var_get_str = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value<'_>>| -> Result<Value<'js>, rquickjs::Error> {
+            let var_name = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected var_name argument")))?
+                .as_string()
+                .ok_or_else(|| {
+                    to_js_error(
+                        cx.clone(),
+                        anyhow!("Expected var_name argument to be a string"),
+                    )
+                })?
+                .to_string()?;
+            let data = var::get::<String>(var_name).map_err(|e| to_js_error(cx.clone(), e))?;
             match data {
-                Some(d) => Ok(JSValue::String(d)),
-                None => Ok(JSValue::Null),
+                Some(d) => {
+                    let s = rquickjs::String::from_str(cx.clone(), &d)?;
+                    Ok(s.as_value().clone())
+                }
+                None => Ok(Null.into_value(cx.clone())),
             }
         },
     )?;
-
-    let var_object = context.object_value()?;
-    var_object.set_property("set", var_set)?;
-    var_object.set_property("getBytes", var_get)?;
-    var_object.set_property("getString", var_get_str)?;
-
+    let var_object = Object::new(this.clone())?;
+    var_object.set("set", var_set)?;
+    var_object.set("getBytex", var_get)?;
+    var_object.set("getString", var_get_str)?;
     Ok(var_object)
 }
 
-fn build_http_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let http_req = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let req = args
-                .first()
-                .ok_or(anyhow!("Expected http request argument"))?;
+fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let http_req = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let req = args
+            .first()
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected http request argument")))?
+            .clone();
 
-            if !req.is_object() {
-                bail!("First argument should be an http request object");
+        if !req.is_object() {
+            return Err(to_js_error(
+                cx,
+                anyhow!("First argument should be an http request argument"),
+            ));
+        }
+
+        let req = req
+            .into_object()
+            .expect("Should be able to convert a request into an object");
+        let url = req
+            .get::<_, Value>("url")
+            .context("Http Request should have url property")
+            .map_err(|e| to_js_error(cx.clone(), e))?;
+
+        let method_string = match req.get::<_, Value>("method") {
+            Ok(m) => m.as_string().ok_or(rquickjs::Error::Unknown)?.to_string()?,
+            Err(_) => "GET".to_string(),
+        };
+
+        let mut http_req = HttpRequest::new(
+            url.as_string()
+                .ok_or(rquickjs::Error::Unknown)?
+                .to_string()?,
+        )
+        .with_method(method_string);
+
+        let headers = req.get::<_, Value>("headers")?;
+
+        if !headers.is_null() && !headers.is_undefined() {
+            if !headers.is_object() {
+                return Err(to_js_error(cx, anyhow!("Expected headers to be an object")));
             }
+            let headers = headers
+                .as_object()
+                .expect("Should be able to convert headers to an object");
+            let header_values: object::ObjectIter<Value, Value> = headers.props();
 
-            let url = req
-                .get_property("url")
-                .context("Http Request should have url property")?;
+            for property_result in header_values {
+                let (key, value) = property_result?;
+                let key = key
+                    .as_string()
+                    .ok_or_else(|| {
+                        to_js_error(cx.clone(), anyhow!("Expect headers keys to be a string"))
+                    })?
+                    .to_string()?;
+                let value = value
+                    .as_string()
+                    .ok_or_else(|| {
+                        to_js_error(
+                            cx.clone(),
+                            anyhow!("Header values should be able to be convertet to a string"),
+                        )
+                    })?
+                    .to_string()?;
+                http_req.headers.insert(key, value);
+            }
+        }
 
-            let method = req.get_property("method");
-            let method_str = match method {
-                Ok(m) => m.as_str()?.to_string(),
-                Err(..) => "GET".to_string(),
-            };
-
-            let mut http_req = HttpRequest::new(url.as_str()?).with_method(method_str);
-
-            let headers = req.get_property("headers")?;
-            if !headers.is_null_or_undefined() {
-                if !headers.is_object() {
-                    bail!("Expected headers to be an object");
+        let body_args = args.get(1);
+        let http_body = match body_args {
+            None => None,
+            Some(body) => {
+                let body = body.as_string();
+                if let Some(body_string) = body {
+                    Some(body_string.to_string()?)
+                } else {
+                    None
                 }
-                if headers.is_object() {
-                    let mut header_values = headers.properties()?;
-                    loop {
-                        let key = header_values.next_key()?;
-                        match key {
-                            None => break,
-                            Some(key) => {
-                                let key = key.as_str()?;
-                                let value = header_values.next_value()?;
-                                let value = value.as_str()?;
-                                http_req.headers.insert(key.to_string(), value.to_string());
-                            }
-                        }
-                    }
-                }
             }
+        };
 
-            let body_arg = args.get(1);
-            let mut http_body: Option<String> = None;
-            if let Some(body) = body_arg {
-                http_body = Some(body.as_str()?.to_string());
-            }
+        let res = http::request(&http_req, http_body).map_err(|e| to_js_error(cx.clone(), e))?;
+        let body = res.body();
+        let body = from_utf8(&body).map_err(|e| to_js_error(cx.clone(), anyhow::Error::from(e)))?;
 
-            let resp = http::request::<String>(&http_req, http_body)?;
-            let body = resp.body();
-            let body = from_utf8(&body)?;
+        let resp_obj = Object::new(cx.clone())?;
 
-            let mut resp_obj = HashMap::new();
-            resp_obj.insert("body".to_string(), JSValue::String(body.into()));
-            resp_obj.insert(
-                "status".to_string(),
-                JSValue::Int(resp.status_code() as i32),
-            );
+        resp_obj.set(
+            "body",
+            rquickjs::String::from_str(cx.clone(), body)?
+                .as_value()
+                .clone(),
+        )?;
 
-            Ok(JSValue::Object(resp_obj))
-        },
-    )?;
+        resp_obj.set(
+            "status",
+            Value::new_int(cx.clone(), res.status_code() as i32),
+        )?;
+        Ok(resp_obj)
+    })?;
 
-    let http_obj = context.object_value()?;
-    http_obj.set_property("request", http_req)?;
+    let http_obj = Object::new(this.clone())?;
+    http_obj.set("request", http_req)?;
 
     Ok(http_obj)
 }
 
-fn build_config_object(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let config_get = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let key = args.first().ok_or(anyhow!("Expected key argument"))?;
-            if !key.is_str() {
-                bail!("Expected key to be a string");
+fn build_config_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
+    let config_get = Function::new(
+        this.clone(),
+        move |cx: Ctx<'js>, args: Rest<Value<'js>>| -> Result<_, rquickjs::Error> {
+            let key = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected key argument")))?;
+
+            if !key.is_string() {
+                to_js_error(cx.clone(), anyhow!("Expected key to be a string"));
             }
 
-            let key = key.as_str()?;
-            match config::get(key) {
-                Ok(Some(v)) => Ok(JSValue::String(v)),
-                _ => Ok(JSValue::Null),
-            }
+            let key = key
+                .as_string()
+                .expect("Should be able to cast the string to a string")
+                .to_string()?;
+
+            let config_val = match config::get(&key) {
+                Ok(Some(v)) => rquickjs::String::from_str(cx.clone(), &v)?
+                    .as_value()
+                    .clone(),
+                _ => Value::new_null(cx),
+            };
+            Ok(config_val)
         },
     )?;
+    let config_obj = Object::new(this.clone())?;
 
-    let config_obj = context.object_value()?;
-    config_obj.set_property("get", config_get)?;
+    config_obj.set("get", config_get)?;
 
     Ok(config_obj)
 }
 
-fn build_memory(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    let memory_from_buffer = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let data = args.first().ok_or(anyhow!("Expected data argument"))?;
-            if !data.is_array_buffer() {
-                bail!("Expected data to be an array buffer");
-            }
-            let data = data.as_bytes()?;
-            let m = extism_pdk::Memory::from_bytes(data)?;
-            let mut mem = HashMap::new();
+fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+    let memory_from_buffer = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let data = args
+            .first()
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected data argument")))?;
+        if !data.is_object() {
+            return Err(to_js_error(
+                cx,
+                anyhow!("Expected data to be an array buffer"),
+            ));
+        }
+        let data = data
+            .as_object()
+            .expect("Should be able to cast data as an object");
+        if !data.is_array_buffer() {
+            return Err(to_js_error(
+                cx,
+                anyhow!("Expected data to be an array buffer"),
+            ));
+        }
+        let data = data
+            .as_array_buffer()
+            .expect("Should be able to cast data as an array buffer")
+            .as_bytes()
+            .ok_or_else(|| {
+                to_js_error(
+                    cx.clone(),
+                    anyhow!("Problem getting data from the array buffer"),
+                )
+            })?;
+        let m = extism_pdk::Memory::from_bytes(data).map_err(|e| to_js_error(cx.clone(), e))?;
 
-            // FLOAT NOTE(Chris): SDKs represent addresses as 64-bit offsets and extents. Some
-            // SDKS, like the JS SDK, store block address information in the high 32 bits. Using a
-            // QuickJS integer type would limit us to 32-bits, erasing that info.
-            //
-            // So instead we rely on the time-honored JavaScript tradition of storing 53 bits
-            // of integer data in a double-precision, 64-bit float. This gives us at least 5
-            // bits of the high 32-bits, which allows the JS-SDK to represent 32 allocations.
-            //
-            // Notably, QuickJS supports 64-bit integers (bigint) types, they're just not exposed
-            // through the wrapper library we're using. We should revisit once someone (maybe us?)
-            // exposes bigints through the library.
-            let offset = JSValue::Float(m.offset() as f64);
-            let len = JSValue::Float(m.len() as f64);
-            mem.insert("offset".to_string(), offset);
-            mem.insert("len".to_string(), len);
-            Ok(JSValue::Object(mem))
-        },
-    )?;
-    let memory_find = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
+        let mem = Object::new(cx.clone())?;
+
+        let offset = BigInt::from_u64(cx.clone(), m.offset())?;
+        let len = BigInt::from_u64(cx.clone(), m.len() as u64);
+        mem.set("offset", offset)?;
+        mem.set("len", len)?;
+        Ok(mem)
+    })?;
+    let memory_find = Function::new(
+        this.clone(),
+        |cx: Ctx<'js>, args: Rest<Value>| -> Result<Value, rquickjs::Error> {
+            let ptr = args
+                .first()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+            if !ptr.is_number() && ptr.type_of() != rquickjs::Type::BigInt {
+                return Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expected offset to be a number"),
+                ));
             }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
+            let ptr = if ptr.is_int() {
+                ptr.as_int().expect("Should be able to cast offset to int") as i64
+            } else if ptr.type_of() == rquickjs::Type::BigInt {
+                ptr.clone()
+                    .try_into_big_int()
+                    .expect("Should be able to cast offset to big int if it's type_of == BigInt")
+                    .to_i64()
+                    .expect("Should be able to cast BigInto to i64")
             } else {
-                ptr.as_f64_unchecked() as i64
-            };
-
-            let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
-                return Ok(JSValue::Undefined);
-            };
-            let mut mem = HashMap::new();
-
-            // See "FLOAT NOTE".
-            let offset = JSValue::Float(m.offset() as f64);
-            let len = JSValue::Float(m.len() as f64);
-            mem.insert("offset".to_string(), offset);
-            mem.insert("len".to_string(), len);
-            Ok(JSValue::Object(mem))
-        },
-    )?;
-    let memory_free = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
-            };
-            if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
-                x.free();
-            }
-
-            Ok(JSValue::Undefined)
-        },
-    )?;
-    let read_bytes = context.wrap_callback(
-        |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
-            let ptr = args.first().ok_or(anyhow!("Expected offset argument"))?;
-            if !ptr.is_number() {
-                bail!("Expected an offset");
-            }
-            let ptr = if ptr.is_repr_as_i32() {
-                ptr.as_i32_unchecked() as i64
-            } else {
-                ptr.as_f64_unchecked() as i64
+                ptr.as_number()
+                    .expect("Should be able to cast offset to number") as i64
             };
             let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
-                bail!("Offset did not represent a valid block of memory (offset={ptr:x})");
+                return Ok(Undefined.into_value(cx.clone()));
             };
-            let bytes = m.to_vec();
-            Ok(JSValue::ArrayBuffer(bytes))
+            let mem = Object::new(cx.clone())?;
+            let offset = BigInt::from_u64(cx.clone(), m.offset())?;
+            let len = BigInt::from_u64(cx.clone(), m.len() as u64);
+
+            mem.set("offset", offset)?;
+            mem.set("len", len)?;
+
+            Ok(mem.into_value())
         },
     )?;
+    let memory_free = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let ptr = args
+            .first()
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+        if !ptr.is_number() && ptr.type_of() != rquickjs::Type::BigInt {
+            return Err(to_js_error(cx.clone(), anyhow!("Expected an offset")));
+        }
+        let ptr = if ptr.is_int() {
+            ptr.as_int()
+                .expect("Should be able to cast offset to an int") as i64
+        } else if ptr.type_of() == rquickjs::Type::BigInt {
+            ptr.clone()
+                .try_into_big_int()
+                .expect("Should be able to cast offset to big int if it's type_of == BigInt")
+                .to_i64()
+                .expect("Should be able to cast BigInto to i64")
+        } else {
+            ptr.as_number()
+                .expect("Should be able to cast offset to number") as i64
+        };
 
-    let mem_obj = context.object_value()?;
-    mem_obj.set_property("_fromBuffer", memory_from_buffer)?;
-    mem_obj.set_property("_find", memory_find)?;
-    mem_obj.set_property("_free", memory_free)?;
-    mem_obj.set_property("_readBytes", read_bytes)?;
+        if let Some(x) = extism_pdk::Memory::find(ptr as u64) {
+            x.free();
+        }
+        Ok(Undefined)
+    })?;
+
+    let read_bytes = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
+        let ptr = args
+            .first()
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected offset argument")))?;
+
+        if !ptr.is_number() && ptr.type_of() != rquickjs::Type::BigInt {
+            return Err(to_js_error(cx.clone(), anyhow!("Expected an offset")));
+        }
+
+        let ptr = if ptr.is_int() {
+            ptr.as_int()
+                .expect("Should be able to cast offset to an int") as i64
+        } else if ptr.type_of() == rquickjs::Type::BigInt {
+            ptr.clone()
+                .try_into_big_int()
+                .expect("Should be able to cast offset to big int if it's type_of == BigInt")
+                .to_i64()
+                .expect("Should be able to cast BigInto to i64")
+        } else {
+            ptr.as_number()
+                .expect("Should be able to cast offset to number") as i64
+        };
+
+        let Some(m) = extism_pdk::Memory::find(ptr as u64) else {
+            return Err(to_js_error(
+                cx.clone(),
+                anyhow!("Offset did not represent a valid block of memory (offset={ptr:x})"),
+            ));
+        };
+
+        let bytes = m.to_vec();
+
+        ArrayBuffer::new(cx, bytes)
+    })?;
+
+    let mem_obj = Object::new(this.clone())?;
+
+    mem_obj.set("_fromBuffer", memory_from_buffer)?;
+    mem_obj.set("_find", memory_find)?;
+    mem_obj.set("_free", memory_free)?;
+    mem_obj.set("_readBytes", read_bytes)?;
 
     Ok(mem_obj)
 }
 
-fn build_clock(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(get_time())
+fn build_clock(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, get_time())
 }
 
-fn build_decoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(decode_utf8_buffer_to_js_string())
+fn build_decoder(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, decode_utf8_buffer_to_js_string())
 }
 
-fn build_encoder(context: &JSContextRef) -> anyhow::Result<JSValueRef> {
-    context.wrap_callback(encode_js_string_to_utf8_buffer())
+fn build_encoder(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, encode_js_string_to_utf8_buffer())
 }
 
-fn get_time() -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, _args: &[JSValueRef]| {
+fn get_time<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<rquickjs::String<'js>>> {
+    MutFn::new(|cx: Ctx<'js>, _args| {
         let now = Utc::now();
         // This format is compatible with JavaScript's Date constructor
         let formatted = now.to_rfc3339_opts(SecondsFormat::Millis, true);
-        Ok(formatted.into())
-    }
+        Ok(rquickjs::String::from_str(cx.clone(), &formatted)?)
+    })
 }
 
-fn decode_utf8_buffer_to_js_string(
-) -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+fn decode_utf8_buffer_to_js_string<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
         if args.len() != 5 {
-            return Err(anyhow!("Expecting 5 arguments, received {}", args.len()));
+            return Err(to_js_error(
+                cx,
+                anyhow!("Expecting 5 arguments, received {}", args.len()),
+            ));
         }
 
-        let buffer: Vec<u8> = args[0].try_into()?;
-        let byte_offset: usize = args[1].try_into()?;
-        let byte_length: usize = args[2].try_into()?;
-        let fatal: bool = args[3].try_into()?;
-        let ignore_bom: bool = args[4].try_into()?;
+        let js_buffer_value = args.first().expect("Should have a first argument").clone();
+        let buffer: Vec<u8> = if js_buffer_value.is_array() {
+            Vec::from_js(&cx, js_buffer_value)?
+        } else {
+            let Some(array_buffer) = ArrayBuffer::from_value(js_buffer_value) else {
+                Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not cast the buffer arg to an ArrayBuffer"),
+                ))?
+            };
+            let Some(bytes) = array_buffer.as_bytes() else {
+                Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Could not get the bytes from the array_buffer"),
+                ))?
+            };
+            Vec::from_bytes(bytes).map_err(|e| to_js_error(cx.clone(), e))?
+        };
+        let byte_offset = args[1].as_number().unwrap_or_default() as usize;
+        let byte_length = args[2].as_number().unwrap_or_default() as usize;
+        let fatal = args[3]
+            .as_bool()
+            .expect("Should be able to cast fatal as bool");
+        let ignore_bom = args[4]
+            .as_bool()
+            .expect("Should be able to cast ignore_bom as bool");
 
         let mut view = buffer
             .get(byte_offset..(byte_offset + byte_length))
-            .ok_or_else(|| {
-                anyhow!("Provided offset and length is not valid for provided buffer")
-            })?;
+            .ok_or_else(|| anyhow!("Provided offset and length is not valid for provided buffer"))
+            .map_err(|e| to_js_error(cx.clone(), e))?;
 
         if !ignore_bom {
             view = match view {
                 // [0xEF, 0xBB, 0xBF] is the UTF-8 BOM which we want to strip
                 [0xEF, 0xBB, 0xBF, rest @ ..] => rest,
                 _ => view,
-            };
+            }
         }
 
-        let str =
-            if fatal {
-                Cow::from(from_utf8(view).map_err(|_| {
-                    JSError::Type("The encoded data was not valid utf-8".to_string())
-                })?)
-            } else {
-                String::from_utf8_lossy(view)
-            };
-        Ok(str.to_string().into())
-    }
+        let str = if fatal {
+            Cow::from(from_utf8(view).map_err(|e| rquickjs::Error::Utf8(e))?)
+        } else {
+            String::from_utf8_lossy(view)
+        };
+
+        Ok(rquickjs::String::from_str(cx.clone(), &str.to_string())?.into())
+    })
 }
 
-fn encode_js_string_to_utf8_buffer(
-) -> impl FnMut(&JSContextRef, JSValueRef, &[JSValueRef]) -> anyhow::Result<JSValue> {
-    move |_ctx: &JSContextRef, _this: JSValueRef, args: &[JSValueRef]| {
+fn encode_js_string_to_utf8_buffer<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
         if args.len() != 1 {
-            return Err(anyhow!("Expecting 1 argument, got {}", args.len()));
+            return Err(to_js_error(
+                cx,
+                anyhow!("Expecting 1 argument, got {}", args.len()),
+            ));
         }
 
-        let js_string: String = args[0].try_into()?;
-        Ok(js_string.into_bytes().into())
-    }
+        let js_string = args[0].clone();
+        let rust_string = String::from_js(&cx, js_string)?;
+        let buffer = rust_string.as_bytes();
+        Vec::from_bytes(buffer).unwrap().into_js(&cx)
+    })
 }
