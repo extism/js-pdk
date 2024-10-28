@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Extism CLI
         run: |          
-          go install github.com/extism/cli/extism@latest
+          go install github.com/extism/cli/extism@v1.6.0
           extism --version
 
       - name: Update deps (Linux)
