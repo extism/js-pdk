@@ -15,6 +15,7 @@ use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
 
 #[derive(Debug, Clone)]
 pub struct Param {
+    #[allow(unused)]
     pub name: String,
     pub ptype: ValType,
 }
@@ -139,7 +140,7 @@ fn parse_user_interface(i: &TsInterfaceDecl) -> Result<Interface> {
 
 /// Try to parse the imports
 fn parse_imports(tsmod: &TsModuleDecl) -> Result<Option<Interface>> {
-    for block in &tsmod.body {
+    if let Some(block) = &tsmod.body {
         if let Some(block) = block.clone().ts_module_block() {
             for inter in block.body {
                 if let ModuleItem::Stmt(Stmt::Decl(decl)) = inter {
@@ -166,7 +167,7 @@ fn parse_imports(tsmod: &TsModuleDecl) -> Result<Option<Interface>> {
 fn parse_module_decl(tsmod: &TsModuleDecl) -> Result<Interface> {
     let mut signatures = Vec::new();
 
-    for block in &tsmod.body {
+    if let Some(block) = &tsmod.body {
         if let Some(block) = block.as_ts_module_block() {
             for decl in &block.body {
                 if let ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(e)) = decl {
