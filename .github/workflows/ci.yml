@@ -10,8 +10,9 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
-          - name: windows
-            os: windows-latest
+          # Re-enable once we can build on Windows again
+          # - name: windows
+          #   os: windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
