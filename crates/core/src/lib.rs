@@ -20,9 +20,12 @@ extern "C" fn init() {
     let mut code = String::new();
     io::stdin().read_to_string(&mut code).unwrap();
 
-    let _ = context.with(|this| {
-        this.eval(code)?;
-        Ok::<_, rquickjs::Error>(Undefined)
+    let _ = context.with(|this| -> Result<rquickjs::Undefined, rquickjs::Error> {
+        match this.eval(code) {
+            Ok(()) => (),
+            Err(e) => return Err(e),
+        }
+        Ok(Undefined)
     });
 
     unsafe {
@@ -103,6 +106,7 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
 #[no_mangle]
 pub extern "C" fn __arg_start() {
     unsafe {
+        extism_pdk::info!("ARG START");
         CALL_ARGS.push(vec![]);
     }
 }
@@ -117,6 +121,7 @@ pub extern "C" fn __arg_i32(arg: i32) {
 #[no_mangle]
 pub extern "C" fn __arg_i64(arg: i64) {
     unsafe {
+        extism_pdk::info!("ARG: {}", arg);
         CALL_ARGS.last_mut().unwrap().push(ArgType::I64(arg));
     }
 }
