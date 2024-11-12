@@ -34,7 +34,7 @@ jobs:
       - name: Update deps (Linux)
         run: |
           ./install-wasi-sdk.sh
-          go install github.com/extism/cli/extism@latest
+          go install github.com/extism/cli/extism@v1.6.1
           cd /tmp
           # get just wasm-merge and wasm-opt
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz > binaryen.tar.gz
