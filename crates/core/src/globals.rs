@@ -42,7 +42,7 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         this.eval("globalThis.module = {}; globalThis.module.exports = {}")?;
         // need a *global* var for polyfills to work
         this.eval("var global = globalThis")?;
-        this.eval(from_utf8(PRELUDE).map_err(|e| rquickjs::Error::Utf8(e))?)?;
+        this.eval(from_utf8(PRELUDE).map_err(rquickjs::Error::Utf8)?)?;
 
         Ok::<_, rquickjs::Error>(())
     })?;
@@ -599,6 +599,14 @@ fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
             "status",
             Value::new_int(cx.clone(), res.status_code() as i32),
         )?;
+
+        let headers = rquickjs::Object::new(cx.clone())?;
+
+        for (k, v) in res.headers() {
+            headers.set(k, v)?;
+        }
+
+        resp_obj.set("headers", headers)?;
         Ok(resp_obj)
     })?;
 
@@ -808,7 +816,7 @@ fn get_time<'js>(
         let now = Utc::now();
         // This format is compatible with JavaScript's Date constructor
         let formatted = now.to_rfc3339_opts(SecondsFormat::Millis, true);
-        Ok(rquickjs::String::from_str(cx.clone(), &formatted)?)
+        rquickjs::String::from_str(cx.clone(), &formatted)
     })
 }
 
@@ -863,12 +871,12 @@ fn decode_utf8_buffer_to_js_string<'js>(
         }
 
         let str = if fatal {
-            Cow::from(from_utf8(view).map_err(|e| rquickjs::Error::Utf8(e))?)
+            Cow::from(from_utf8(view).map_err(rquickjs::Error::Utf8)?)
         } else {
             String::from_utf8_lossy(view)
         };
 
-        Ok(rquickjs::String::from_str(cx.clone(), &str.to_string())?.into())
+        Ok(rquickjs::String::from_str(cx.clone(), &str)?.into())
     })
 }
 

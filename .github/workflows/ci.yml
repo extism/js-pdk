@@ -10,8 +10,9 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
-          - name: windows
-            os: windows-latest
+          # Re-enable once we can build on Windows again
+          # - name: windows
+          #   os: windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -29,12 +30,16 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: '3.12'
+
+      - name: Install Extism CLI
+        run: |          
+          go install github.com/extism/cli/extism@v1.6.0
+          extism --version
 
       - name: Update deps (Linux)
         run: |
           ./install-wasi-sdk.sh
-          go install github.com/extism/cli/extism@latest
           cd /tmp
           # get just wasm-merge and wasm-opt
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz > binaryen.tar.gz

@@ -137,6 +137,7 @@ pub extern "C" fn __arg_f64(arg: f64) {
 
 macro_rules! unwrap_value {
     ($d:expr, $x:expr) => {
+        #[allow(clippy::blocks_in_conditions)]
         match $x {
             Ok(x) => x,
             Err(e) => {
