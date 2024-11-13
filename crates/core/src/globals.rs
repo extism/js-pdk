@@ -441,25 +441,95 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                     unsafe { __invokeHostFunc_0_0(func_id) };
                 }
                 1 => {
-                    let ptr = args.get(1).unwrap().as_float().unwrap();
+                    let ptr = args
+                        .get(1)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
                     unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
                 }
                 2 => {
-                    let ptr = args.get(1).unwrap().as_float().unwrap();
-                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
+                    let ptr = args
+                        .get(1)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr2 = args
+                        .get(2)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
                     unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
                 }
                 3 => {
-                    let ptr = args.get(1).unwrap().as_float().unwrap();
-                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
-                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
+                    let ptr = args
+                        .get(1)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr2 = args
+                        .get(2)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr3 = args
+                        .get(3)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
                     unsafe { __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64) };
                 }
                 4 => {
-                    let ptr = args.get(1).unwrap().as_float().unwrap();
-                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
-                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
-                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
+                    let ptr = args
+                        .get(1)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr2 = args
+                        .get(2)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr3 = args
+                        .get(3)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr4 = args
+                        .get(4)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
                     unsafe {
                         __invokeHostFunc_4_0(
                             func_id,
@@ -471,11 +541,46 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                     };
                 }
                 5 => {
-                    let ptr = args.get(1).unwrap().as_float().unwrap();
-                    let ptr2 = args.get(2).unwrap().as_float().unwrap();
-                    let ptr3 = args.get(3).unwrap().as_float().unwrap();
-                    let ptr4 = args.get(4).unwrap().as_float().unwrap();
-                    let ptr5 = args.get(5).unwrap().as_float().unwrap();
+                    let ptr = args
+                        .get(1)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr2 = args
+                        .get(2)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr3 = args
+                        .get(3)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr4 = args
+                        .get(4)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
+                    let ptr5 = args
+                        .get(5)
+                        .unwrap()
+                        .as_big_int()
+                        .unwrap()
+                        .clone()
+                        .to_i64()
+                        .unwrap();
                     unsafe {
                         __invokeHostFunc_5_0(
                             func_id,
