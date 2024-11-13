@@ -106,7 +106,6 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
 #[no_mangle]
 pub extern "C" fn __arg_start() {
     unsafe {
-        extism_pdk::info!("ARG START");
         CALL_ARGS.push(vec![]);
     }
 }
@@ -121,7 +120,6 @@ pub extern "C" fn __arg_i32(arg: i32) {
 #[no_mangle]
 pub extern "C" fn __arg_i64(arg: i64) {
     unsafe {
-        extism_pdk::info!("ARG: {}", arg);
         CALL_ARGS.last_mut().unwrap().push(ArgType::I64(arg));
     }
 }
