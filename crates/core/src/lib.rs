@@ -20,9 +20,12 @@ extern "C" fn init() {
     let mut code = String::new();
     io::stdin().read_to_string(&mut code).unwrap();
 
-    let _ = context.with(|this| {
-        this.eval(code)?;
-        Ok::<_, rquickjs::Error>(Undefined)
+    let _ = context.with(|this| -> Result<rquickjs::Undefined, rquickjs::Error> {
+        match this.eval(code) {
+            Ok(()) => (),
+            Err(e) => return Err(e),
+        }
+        Ok(Undefined)
     });
 
     unsafe {
