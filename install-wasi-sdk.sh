@@ -19,15 +19,22 @@ if [[ -n "$QUICKJS_WASM_SYS_WASI_SDK_PATH" ]]; then
 fi
 set -u
 
+ARCH=`uname -m`
+case "$ARCH" in
+  ix86*|x86_64*)    ARCH="x86_64" ;;
+  arm64*|aarch64*)  ARCH="arm64" ;;
+  *)                echo "unknown arch: $ARCH" && exit 1 ;;
+esac
+
 PATH_TO_SDK="wasi-sdk"
 if [[ ! -d $PATH_TO_SDK ]]; then
     TMPGZ=$(mktemp)
     VERSION_MAJOR="24"
     VERSION_MINOR="0"
     if [[ "$(uname -s)" == "Darwin" ]]; then
-        curl --fail --location --silent https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${VERSION_MAJOR}/wasi-sdk-${VERSION_MAJOR}.${VERSION_MINOR}-macos.tar.gz --output $TMPGZ
+        curl --fail --location https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${VERSION_MAJOR}/wasi-sdk-${VERSION_MAJOR}.${VERSION_MINOR}-${ARCH}-macos.tar.gz --output $TMPGZ
     else
-        curl --fail --location --silent https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${VERSION_MAJOR}/wasi-sdk-${VERSION_MAJOR}.${VERSION_MINOR}-linux.tar.gz --output $TMPGZ
+        curl --fail --location https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${VERSION_MAJOR}/wasi-sdk-${VERSION_MAJOR}.${VERSION_MINOR}-${ARCH}-linux.tar.gz --output $TMPGZ
     fi
     mkdir $PATH_TO_SDK
     tar xf $TMPGZ -C $PATH_TO_SDK --strip-components=1
