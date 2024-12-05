@@ -77,7 +77,8 @@ extern "C" {
 fn get_args_as_str(args: &Rest<Value>) -> anyhow::Result<String> {
     args.iter()
         .map(|arg| {
-            arg.as_string()
+            arg.clone()
+                .into_string()
                 .ok_or(rquickjs::Error::Unknown)
                 .and_then(|s| s.to_string())
         })
@@ -89,9 +90,9 @@ fn get_args_as_str(args: &Rest<Value>) -> anyhow::Result<String> {
 fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
     match e.downcast::<rquickjs::Error>() {
         Ok(e) => e,
-        Err(e) => cx.throw(Value::from_exception(
-            rquickjs::Exception::from_message(cx.clone(), &e.to_string())
-                .expect("Creating an exception should succeed"),
+        Err(e) => cx.throw(rquickjs::Value::from_string(
+            rquickjs::String::from_str(cx.clone(), &e.to_string())
+                .expect("rquickjs error conversion"),
         )),
     }
 }
@@ -144,7 +145,7 @@ fn build_module_object(this: Ctx) -> anyhow::Result<Object> {
     Ok(module)
 }
 
-fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     let host_input_bytes = Function::new(
         this.clone(),
         MutFn::new(move |cx| {
@@ -260,7 +261,6 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
     if invoke_host.is_null() || invoke_host.is_undefined() {
         let host_invoke_func = Function::new(this.clone(), move |cx, args: Rest<Value<'_>>| {
             let func_id = args.first().unwrap().as_int().unwrap() as u32;
-            println!("Invoke host func: {func_id}");
             let len = args.len() - 1;
             match len {
                 0 => {
@@ -273,8 +273,8 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
@@ -285,16 +285,16 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let result = unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
@@ -305,24 +305,32 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
+                        .or_else(|| {
+                            args.get(3)
+                                .cloned()
+                                .and_then(|x| match BigInt::from_value(x) {
+                                    Ok(x) => Some(x),
+                                    Err(_) => None,
+                                })
+                        })
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let result = unsafe {
@@ -335,32 +343,32 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr4 = args
                         .get(4)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let result = unsafe {
@@ -379,40 +387,40 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr4 = args
                         .get(4)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr5 = args
                         .get(5)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let result = unsafe {
@@ -445,8 +453,8 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
@@ -456,16 +464,16 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
@@ -475,24 +483,24 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     unsafe { __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64) };
@@ -502,32 +510,32 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr4 = args
                         .get(4)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     unsafe {
@@ -545,40 +553,40 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
                         .get(1)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr2 = args
                         .get(2)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr3 = args
                         .get(3)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr4 = args
                         .get(4)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     let ptr5 = args
                         .get(5)
                         .unwrap()
                         .as_big_int()
+                        .cloned()
                         .unwrap()
-                        .clone()
                         .to_i64()
                         .unwrap();
                     unsafe {
@@ -607,7 +615,7 @@ fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     let var_set = Function::new(
         this.clone(),
         MutFn::new(move |cx: Ctx, args: Rest<Value<'_>>| {
@@ -714,7 +722,7 @@ fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
     Ok(var_object)
 }
 
-fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+fn build_http_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     let http_req = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
         let req = args
             .first()
@@ -860,7 +868,7 @@ fn build_config_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     Ok(config_obj)
 }
 
-fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object> {
+fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     let memory_from_buffer = Function::new(this.clone(), |cx: Ctx<'js>, args: Rest<Value>| {
         let data = args
             .first()
