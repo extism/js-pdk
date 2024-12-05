@@ -594,7 +594,7 @@ Before compiling the compiler, you need to install prerequisites.
 
 1. Install Rust using [rustup](https://rustup.rs)
 2. Install the WASI target platform via
-   `rustup target add --toolchain stable wasm32-wasi`
+   `rustup target add --toolchain stable wasm32-wasip1`
 3. Install the wasi sdk using the makefile command: `make download-wasi-sdk`
 4. Install [CMake](https://cmake.org/install/) (on macOS with homebrew,
    `brew install cmake`)
