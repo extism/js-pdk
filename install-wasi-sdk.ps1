@@ -22,7 +22,7 @@ if ($env:QUICKJS_WASM_SYS_WASI_SDK_PATH) {
 
 $PATH_TO_SDK = "wasi-sdk"
 if (-Not (Test-Path -Path $PATH_TO_SDK)) {
-    $VERSION_MAJOR = "12"
+    $VERSION_MAJOR = "24"
     $VERSION_MINOR = "0"
     $url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-$VERSION_MAJOR/wasi-sdk-$VERSION_MAJOR.$VERSION_MINOR-mingw.tar.gz"
     Invoke-WebRequest -Uri $url -OutFile "$tempPath\wasi-sdk-$VERSION_MAJOR.$VERSION_MINOR-mingw.tar.gz" 
