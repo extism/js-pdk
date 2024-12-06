@@ -77,7 +77,7 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
                         .push_arg(v)
                         .expect("Should be able to convert i32 to JS arg"),
                     ArgType::I64(v) => args
-                        .push_arg(v)
+                        .push_arg(rquickjs::BigInt::from_i64(ctx.clone(), *v))
                         .expect("Should be able to convert i64 to JS arg"),
                     ArgType::F32(v) => args
                         .push_arg(v)
