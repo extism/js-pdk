@@ -254,361 +254,170 @@ fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     Ok(host_object)
 }
 
-fn add_host_functions(this: Ctx<'_>) -> anyhow::Result<()> {
+fn add_host_functions<'a>(this: Ctx<'a>) -> anyhow::Result<()> {
     let globals = this.globals();
     let host_object = globals.get::<_, Object>("Host")?;
     let invoke_host = host_object.get::<_, Value>("invokeHost")?;
     if invoke_host.is_null() || invoke_host.is_undefined() {
-        let host_invoke_func = Function::new(this.clone(), move |cx, args: Rest<Value<'_>>| {
-            let func_id = args.first().unwrap().as_int().unwrap() as u32;
-            let len = args.len() - 1;
-            match len {
-                0 => {
-                    let result = unsafe { __invokeHostFunc_0_1(func_id) };
-
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                1 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
+        let host_invoke_func =
+            Function::new(this.clone(), move |cx: Ctx<'a>, args: Rest<Value<'a>>| {
+                let func_id = args.first().unwrap().as_int().unwrap() as u32;
+                let len = args.len() - 1;
+                let get_arg = |index: usize| -> i64 {
+                    let x: &Value = args.get(index).unwrap();
+                    x.as_big_int()
                         .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                2 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let result = unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                3 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .or_else(|| {
-                            args.get(3)
-                                .cloned()
-                                .and_then(|x| match BigInt::from_value(x) {
-                                    Ok(x) => Some(x),
-                                    Err(_) => None,
-                                })
+                        .and_then(|x| match x.to_i64() {
+                            Ok(x) => Some(x),
+                            Err(_) => None,
                         })
+                        .or_else(|| x.as_float().or_else(|| x.as_number()).map(|x| x as i64))
                         .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let result = unsafe {
-                        __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
-                    };
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                4 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr4 = args
-                        .get(4)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let result = unsafe {
-                        __invokeHostFunc_4_1(
-                            func_id,
-                            ptr as u64,
-                            ptr2 as u64,
-                            ptr3 as u64,
-                            ptr4 as u64,
-                        )
-                    };
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                5 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr4 = args
-                        .get(4)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr5 = args
-                        .get(5)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let result = unsafe {
-                        __invokeHostFunc_5_1(
-                            func_id,
-                            ptr as u64,
-                            ptr2 as u64,
-                            ptr3 as u64,
-                            ptr4 as u64,
-                            ptr5 as u64,
-                        )
-                    };
-                    Ok(Value::new_float(cx, result as f64))
-                }
-                n => Err(to_js_error(
-                    cx,
-                    anyhow!("__invokeHostFunc with {n} parameters is not implemented"),
-                )),
-            }
-        })?;
-        let host_invoke_func0 = Function::new(this.clone(), move |cx: Ctx, args: Rest<Value>| {
-            let func_id = args.first().unwrap().as_int().unwrap() as u32;
-            let len = args.len() - 1;
-            match len {
-                0 => {
-                    unsafe { __invokeHostFunc_0_0(func_id) };
-                }
-                1 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
-                }
-                2 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
-                }
-                3 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    unsafe { __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64) };
-                }
-                4 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr4 = args
-                        .get(4)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    unsafe {
-                        __invokeHostFunc_4_0(
-                            func_id,
-                            ptr as u64,
-                            ptr2 as u64,
-                            ptr3 as u64,
-                            ptr4 as u64,
-                        )
-                    };
-                }
-                5 => {
-                    let ptr = args
-                        .get(1)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr2 = args
-                        .get(2)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr3 = args
-                        .get(3)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr4 = args
-                        .get(4)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    let ptr5 = args
-                        .get(5)
-                        .unwrap()
-                        .as_big_int()
-                        .cloned()
-                        .unwrap()
-                        .to_i64()
-                        .unwrap();
-                    unsafe {
-                        __invokeHostFunc_5_0(
-                            func_id,
-                            ptr as u64,
-                            ptr2 as u64,
-                            ptr3 as u64,
-                            ptr4 as u64,
-                            ptr5 as u64,
-                        )
-                    };
-                }
-                n => {
-                    return Err(to_js_error(
+                };
+                match len {
+                    0 => {
+                        let result = unsafe { __invokeHostFunc_0_1(func_id) };
+
+                        Ok(Value::new_float(cx, result as f64))
+                    }
+                    1 => {
+                        let ptr = get_arg(1);
+                        let result = unsafe { __invokeHostFunc_1_1(func_id, ptr as u64) };
+                        Ok(Value::new_float(cx.clone(), result as f64))
+                    }
+                    2 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let result =
+                            unsafe { __invokeHostFunc_2_1(func_id, ptr as u64, ptr2 as u64) };
+                        Ok(Value::new_float(cx, result as f64))
+                    }
+                    3 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        let result = unsafe {
+                            __invokeHostFunc_3_1(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
+                        };
+                        Ok(Value::new_float(cx, result as f64))
+                    }
+                    4 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        let ptr4 = get_arg(4);
+                        let result = unsafe {
+                            __invokeHostFunc_4_1(
+                                func_id,
+                                ptr as u64,
+                                ptr2 as u64,
+                                ptr3 as u64,
+                                ptr4 as u64,
+                            )
+                        };
+                        Ok(Value::new_float(cx, result as f64))
+                    }
+                    5 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        let ptr4 = get_arg(4);
+                        let ptr5 = get_arg(5);
+                        let result = unsafe {
+                            __invokeHostFunc_5_1(
+                                func_id,
+                                ptr as u64,
+                                ptr2 as u64,
+                                ptr3 as u64,
+                                ptr4 as u64,
+                                ptr5 as u64,
+                            )
+                        };
+                        Ok(Value::new_float(cx, result as f64))
+                    }
+                    n => Err(to_js_error(
                         cx,
                         anyhow!("__invokeHostFunc with {n} parameters is not implemented"),
-                    ))
+                    )),
                 }
-            }
-            Ok(Undefined)
-        })?;
+            })?;
+        let host_invoke_func0 =
+            Function::new(this.clone(), move |cx: Ctx<'_>, args: Rest<Value<'_>>| {
+                let func_id = args.first().unwrap().as_int().unwrap() as u32;
+                let len = args.len() - 1;
+                let get_arg = |index: usize| -> i64 {
+                    let x: &Value = args.get(index).unwrap();
+                    x.as_big_int()
+                        .cloned()
+                        .and_then(|x| match x.to_i64() {
+                            Ok(x) => Some(x),
+                            Err(_) => None,
+                        })
+                        .or_else(|| x.as_float().or_else(|| x.as_number()).map(|x| x as i64))
+                        .unwrap()
+                };
+                match len {
+                    0 => {
+                        unsafe { __invokeHostFunc_0_0(func_id) };
+                    }
+                    1 => {
+                        let ptr = get_arg(1);
+                        unsafe { __invokeHostFunc_1_0(func_id, ptr as u64) };
+                    }
+                    2 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        unsafe { __invokeHostFunc_2_0(func_id, ptr as u64, ptr2 as u64) };
+                    }
+                    3 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        unsafe {
+                            __invokeHostFunc_3_0(func_id, ptr as u64, ptr2 as u64, ptr3 as u64)
+                        };
+                    }
+                    4 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        let ptr4 = get_arg(4);
+                        unsafe {
+                            __invokeHostFunc_4_0(
+                                func_id,
+                                ptr as u64,
+                                ptr2 as u64,
+                                ptr3 as u64,
+                                ptr4 as u64,
+                            )
+                        };
+                    }
+                    5 => {
+                        let ptr = get_arg(1);
+                        let ptr2 = get_arg(2);
+                        let ptr3 = get_arg(3);
+                        let ptr4 = get_arg(4);
+                        let ptr5 = get_arg(5);
+                        unsafe {
+                            __invokeHostFunc_5_0(
+                                func_id,
+                                ptr as u64,
+                                ptr2 as u64,
+                                ptr3 as u64,
+                                ptr4 as u64,
+                                ptr5 as u64,
+                            )
+                        };
+                    }
+                    n => {
+                        return Err(to_js_error(
+                            cx,
+                            anyhow!("__invokeHostFunc with {n} parameters is not implemented"),
+                        ))
+                    }
+                }
+                Ok(Undefined)
+            })?;
         host_object.set("invokeFunc", host_invoke_func)?;
         host_object.set("invokeFunc0", host_invoke_func0)?;
     }
