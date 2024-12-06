@@ -163,10 +163,12 @@ pub extern "C" fn __invoke_i32(idx: i32) -> i32 {
 #[no_mangle]
 pub extern "C" fn __invoke_i64(idx: i32) -> i64 {
     invoke(idx, |_ctx, r| {
-        let Some(number) = r.as_big_int() else {
-            return 0;
-        };
-        number.clone().to_i64().unwrap_or_default()
+        if let Some(number) = r.as_big_int() {
+            return number.clone().to_i64().unwrap_or_default();
+        } else if let Some(number) = r.as_number() {
+            return number as i64;
+        }
+        0
     })
     .unwrap_or(-1)
 }
