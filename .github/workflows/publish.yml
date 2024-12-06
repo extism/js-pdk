@@ -18,7 +18,7 @@ jobs:
         with:
           profile: default
           toolchain: stable
-          target: wasm32-wasi
+          target: wasm32-wasip1
           default: true
 
       - name: Get wasm-opt
@@ -35,13 +35,13 @@ jobs:
         run: make core
 
       - name: Opt core
-        run: wasm-opt --enable-reference-types --enable-bulk-memory --strip -O3 target/wasm32-wasi/release/js_pdk_core.wasm -o target/wasm32-wasi/release/js_pdk_core.wasm
+        run: wasm-opt --enable-reference-types --enable-bulk-memory --strip -O3 target/wasm32-wasip1/release/js_pdk_core.wasm -o target/wasm32-wasip1/release/js_pdk_core.wasm
 
       - name: Upload core binary to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: engine
-          path: target/wasm32-wasi/release/js_pdk_core.wasm
+          path: target/wasm32-wasip1/release/js_pdk_core.wasm
 
   compile_cli:
     name: Compile CLI

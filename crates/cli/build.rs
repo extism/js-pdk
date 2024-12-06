@@ -32,7 +32,7 @@ fn copy_engine_binary() {
     if !is_override {
         engine_path.pop();
         engine_path.pop();
-        engine_path = engine_path.join("target/wasm32-wasi/release/js_pdk_core.wasm");
+        engine_path = engine_path.join("target/wasm32-wasip1/release/js_pdk_core.wasm");
     }
 
     println!("cargo:rerun-if-changed={}", engine_path.to_str().unwrap());
