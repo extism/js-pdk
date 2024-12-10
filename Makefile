@@ -50,6 +50,7 @@ clean-wasi-sdk:
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
 		@extism call examples/bundled.wasm greet --wasi --input="Benjamin" --allow-host "example.com"
+		# TODO uncomment block after python sdk is updated
 # ifeq ($(OS),Windows_NT)
 # 		@python3 -m venv ./.venv && \
 # 			./.venv/Scripts/activate.bat && \
@@ -65,7 +66,6 @@ test: compile-examples
 # endif
 		@extism call examples/react.wasm render --wasi
 		@extism call examples/react.wasm setState --input='{"action": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
-		#@extism call examples/exception.wasm greet --wasi --input="Benjamin"
 		@error_msg=$$(extism call examples/exception.wasm greet --wasi --input="Benjamin" 2>&1); \
 		if echo "$$error_msg" | grep -q "shibboleth"; then \
 			echo "Test passed - found expected error"; \
