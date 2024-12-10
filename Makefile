@@ -50,20 +50,19 @@ clean-wasi-sdk:
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"
 		@extism call examples/bundled.wasm greet --wasi --input="Benjamin" --allow-host "example.com"
-		# TODO uncomment block after python sdk is updated
-# ifeq ($(OS),Windows_NT)
-# 		@python3 -m venv ./.venv && \
-# 			./.venv/Scripts/activate.bat && \
-# 			pip install -r examples/host_funcs/requirements.txt && \
-# 			python examples/host_funcs/host.py examples/host_funcs.wasm && \
-# 			./.venv/Scripts/deactivate.bat
-# else
-# 		@python3 -m venv ./.venv && \
-# 			. ./.venv/bin/activate && \
-# 			pip install -r examples/host_funcs/requirements.txt && \
-# 			python3 examples/host_funcs/host.py examples/host_funcs.wasm && \
-# 			deactivate
-# endif
+ifeq ($(OS),Windows_NT)
+		@python3 -m venv ./.venv && \
+			./.venv/Scripts/activate.bat && \
+			pip install -r examples/host_funcs/requirements.txt && \
+			python examples/host_funcs/host.py examples/host_funcs.wasm && \
+			./.venv/Scripts/deactivate.bat
+else
+		@python3 -m venv ./.venv && \
+			. ./.venv/bin/activate && \
+			pip install -r examples/host_funcs/requirements.txt && \
+			python3 examples/host_funcs/host.py examples/host_funcs.wasm && \
+			deactivate
+endif
 		@extism call examples/react.wasm render --wasi
 		@extism call examples/react.wasm setState --input='{"action": "SET_SETTING", "payload": { "backgroundColor": "tomato" }}' --wasi
 		@error_msg=$$(extism call examples/exception.wasm greet --wasi --input="Benjamin" 2>&1); \
