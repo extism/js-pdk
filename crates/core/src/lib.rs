@@ -1,4 +1,3 @@
-use once_cell::sync::OnceCell;
 use rquickjs::{
     function::Args, object::ObjectKeysIter, Context, Ctx, Function, Object, Runtime, Undefined,
     Value,
@@ -8,8 +7,30 @@ use std::io::Read;
 
 mod globals;
 
-static mut CONTEXT: OnceCell<Context> = OnceCell::new();
-static mut CALL_ARGS: Vec<Vec<ArgType>> = vec![];
+struct Cx(Context);
+
+unsafe impl Send for Cx {}
+unsafe impl Sync for Cx {}
+
+static CONTEXT: std::sync::OnceLock<Cx> = std::sync::OnceLock::new();
+static CALL_ARGS: std::sync::Mutex<Vec<Vec<ArgType>>> = std::sync::Mutex::new(vec![]);
+
+fn check_exception(this: &Ctx, err: rquickjs::Error) -> anyhow::Error {
+    let s = match err {
+        rquickjs::Error::Exception => {
+            let err = this.catch().into_exception().unwrap();
+            let msg = err.message().unwrap_or_default();
+            format!("Exception: {}\n{}", msg, err.stack().unwrap_or_default())
+        }
+        err => err.to_string(),
+    };
+
+    let mem = extism_pdk::Memory::from_bytes(&s).unwrap();
+    unsafe {
+        extism_pdk::extism::error_set(mem.offset());
+    }
+    anyhow::Error::msg(s)
+}
 
 #[export_name = "wizer.initialize"]
 extern "C" fn init() {
@@ -20,39 +41,33 @@ extern "C" fn init() {
     let mut code = String::new();
     io::stdin().read_to_string(&mut code).unwrap();
 
-    let _ = context.with(|this| -> Result<rquickjs::Undefined, rquickjs::Error> {
-        match this.eval(code) {
-            Ok(()) => (),
-            Err(e) => return Err(e),
-        }
-        Ok(Undefined)
-    });
-
-    unsafe {
-        CONTEXT
-            .set(context)
-            .map_err(|_| anyhow::anyhow!("Could not intialize JS Context"))
-            .unwrap()
-    }
+    context
+        .with(|this| -> Result<rquickjs::Undefined, anyhow::Error> {
+            match this.eval(code) {
+                Ok(()) => (),
+                Err(err) => return Err(check_exception(&this, err)),
+            }
+            Ok(Undefined)
+        })
+        .unwrap();
+    let _ = CONTEXT.set(Cx(context));
 }
 
-fn js_context() -> &'static Context {
-    unsafe {
-        if CONTEXT.get().is_none() {
-            init()
-        }
-        let context = CONTEXT.get_unchecked();
-        context
+fn js_context() -> Context {
+    if CONTEXT.get().is_none() {
+        init()
     }
+    let context = CONTEXT.get().unwrap();
+    context.0.clone()
 }
 
 fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
     idx: i32,
     conv: F,
 ) -> Result<T, anyhow::Error> {
-    let call_args = unsafe { CALL_ARGS.pop() };
+    let call_args = CALL_ARGS.lock().unwrap().pop();
     let context = js_context();
-    let result = context.with(|ctx| {
+    context.with(|ctx| {
         let call_args = call_args.unwrap();
         let args: Args = call_args.iter().fold(
             Args::new(ctx.clone(), call_args.len()),
@@ -62,7 +77,7 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
                         .push_arg(v)
                         .expect("Should be able to convert i32 to JS arg"),
                     ArgType::I64(v) => args
-                        .push_arg(v)
+                        .push_arg(rquickjs::BigInt::from_i64(ctx.clone(), *v))
                         .expect("Should be able to convert i64 to JS arg"),
                     ArgType::F32(v) => args
                         .push_arg(v)
@@ -90,111 +105,87 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
                 let res = conv(ctx.clone(), r);
                 Ok(res)
             }
-            Err(err) => {
-                let e = format!("{:?}", err);
-                let mem = extism_pdk::Memory::from_bytes(&e).unwrap();
-                unsafe {
-                    extism_pdk::extism::error_set(mem.offset());
-                }
-                Err(err)
-            }
+            Err(err) => Err(check_exception(&ctx, err)),
         }
-    })?;
-    Ok(result)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn __arg_start() {
-    unsafe {
-        CALL_ARGS.push(vec![]);
-    }
+    CALL_ARGS.lock().unwrap().push(vec![]);
 }
 
 #[no_mangle]
 pub extern "C" fn __arg_i32(arg: i32) {
-    unsafe {
-        CALL_ARGS.last_mut().unwrap().push(ArgType::I32(arg));
-    }
+    CALL_ARGS
+        .lock()
+        .unwrap()
+        .last_mut()
+        .unwrap()
+        .push(ArgType::I32(arg));
 }
 
 #[no_mangle]
 pub extern "C" fn __arg_i64(arg: i64) {
-    unsafe {
-        CALL_ARGS.last_mut().unwrap().push(ArgType::I64(arg));
-    }
+    CALL_ARGS
+        .lock()
+        .unwrap()
+        .last_mut()
+        .unwrap()
+        .push(ArgType::I64(arg));
 }
 
 #[no_mangle]
 pub extern "C" fn __arg_f32(arg: f32) {
-    unsafe {
-        CALL_ARGS.last_mut().unwrap().push(ArgType::F32(arg));
-    }
+    CALL_ARGS
+        .lock()
+        .unwrap()
+        .last_mut()
+        .unwrap()
+        .push(ArgType::F32(arg));
 }
 
 #[no_mangle]
 pub extern "C" fn __arg_f64(arg: f64) {
-    unsafe {
-        CALL_ARGS.last_mut().unwrap().push(ArgType::F64(arg));
-    }
-}
-
-macro_rules! unwrap_value {
-    ($d:expr, $x:expr) => {
-        #[allow(clippy::blocks_in_conditions)]
-        match $x {
-            Ok(x) => x,
-            Err(e) => {
-                let err = format!("{:?}", e);
-                let mem = extism_pdk::Memory::from_bytes(&err).unwrap();
-                unsafe {
-                    extism_pdk::extism::error_set(mem.offset());
-                }
-                $d
-            }
-        }
-    };
+    CALL_ARGS
+        .lock()
+        .unwrap()
+        .last_mut()
+        .unwrap()
+        .push(ArgType::F64(arg));
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_i32(idx: i32) -> i32 {
-    unwrap_value!(
-        -1,
-        invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as i32)
-    )
+    invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as i32).unwrap_or(-1)
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_i64(idx: i32) -> i64 {
-    unwrap_value!(
-        -1,
-        invoke(idx, |_ctx, r| {
-            let Some(number) = r.as_big_int() else {
-                return 0;
-            };
-            number.clone().to_i64().unwrap_or_default()
-        })
-    )
+    invoke(idx, |_ctx, r| {
+        if let Some(number) = r.as_big_int() {
+            return number.clone().to_i64().unwrap_or_default();
+        } else if let Some(number) = r.as_number() {
+            return number as i64;
+        }
+        0
+    })
+    .unwrap_or(-1)
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f64(idx: i32) -> f64 {
-    unwrap_value!(
-        -1.0,
-        invoke(idx, |_ctx, r| r.as_float().unwrap_or_default())
-    )
+    invoke(idx, |_ctx, r| r.as_float().unwrap_or_default()).unwrap_or(-1.0)
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke_f32(idx: i32) -> f32 {
-    unwrap_value!(
-        -1.0,
-        invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as f32)
-    )
+    invoke(idx, |_ctx, r| r.as_number().unwrap_or_default() as f32).unwrap_or(-1.0)
 }
 
 #[no_mangle]
 pub extern "C" fn __invoke(idx: i32) {
-    unwrap_value!((), invoke(idx, |_ctx, _r| ()))
+    invoke(idx, |_ctx, _r| ()).unwrap()
 }
 
 fn export_names(exports: Object) -> anyhow::Result<Vec<String>> {
