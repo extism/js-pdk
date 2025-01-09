@@ -9,7 +9,7 @@ jobs:
       matrix:
         include:
           - name: linux
-            os: ubuntu-latest
+            os: ubuntu-22.04
           # Re-enable once we can build on Windows again
           # - name: windows
           #   os: windows-latest
