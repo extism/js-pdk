@@ -1,23 +1,29 @@
 #!/bin/bash
 set -eou pipefail
 
-# Get the latest release
-RELEASE_API_URL="https://api.github.com/repos/extism/js-pdk/releases/latest"
-response=$(curl -s "$RELEASE_API_URL")
-if [ -z "$response" ]; then
-    echo "Error: Failed to fetch the latest release from GitHub API."
-    exit 1
+# Check if a specific tag was provided
+if [ $# -eq 1 ]; then
+    LATEST_TAG="$1"
+    echo "Using specified tag: $LATEST_TAG"
+else
+    # Get the latest release
+    RELEASE_API_URL="https://api.github.com/repos/extism/js-pdk/releases/latest"
+    response=$(curl -s "$RELEASE_API_URL")
+    if [ -z "$response" ]; then
+        echo "Error: Failed to fetch the latest release from GitHub API."
+        exit 1
+    fi
+
+    # try to parse tag
+    LATEST_TAG=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+
+    if [ -z "$LATEST_TAG" ]; then
+        echo "Error: Could not find the latest release tag."
+        exit 1
+    fi
+
+    echo "Installing extism-js latest release with tag: $LATEST_TAG"
 fi
-
-# try to parse tag
-LATEST_TAG=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
-
-if [ -z "$LATEST_TAG" ]; then
-    echo "Error: Could not find the latest release tag."
-    exit 1
-fi
-
-echo "Installing extism-js release with tag: $LATEST_TAG"
 
 OS=''
 case `uname` in
@@ -133,4 +139,3 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
 fi
 
 echo "Installation complete. Try to run 'extism-js --version' to ensure it was correctly installed."
-
