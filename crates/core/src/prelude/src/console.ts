@@ -61,11 +61,12 @@ function createLogFunction(level: string) {
 }
 
 const console = {
+    trace: createLogFunction('trace'),
+    debug: createLogFunction('debug'),
     log: createLogFunction('info'),
     info: createLogFunction('info'),
     warn: createLogFunction('warn'),
     error: createLogFunction('error'),
-    debug: createLogFunction('debug')
 };
 
 globalThis.console = console;

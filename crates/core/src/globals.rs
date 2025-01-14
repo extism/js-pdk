@@ -113,6 +113,7 @@ fn build_console_writer<'js>(this: Ctx<'js>) -> Result<Function<'js>, rquickjs::
                 "warn" => warn!("{}", message),
                 "error" => error!("{}", message),
                 "debug" => debug!("{}", message),
+                "trace" => trace!("{}", message),
                 _ => warn!("{}", message) // Default to warn for unknown levels, this should never happen
             }
             
