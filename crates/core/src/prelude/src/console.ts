@@ -17,16 +17,39 @@ declare global {
 function stringifyArg(arg: any): string {
     if (arg === null) return 'null';
     if (arg === undefined) return 'undefined';
+    
+    if (typeof arg === 'symbol') return arg.toString();
+    if (typeof arg === 'bigint') return `${arg}n`;
+    if (typeof arg === 'function') return `[Function ${arg.name ? `${arg.name}` : '(anonymous)'}]`;
+
     if (typeof arg === 'object') {
-        if (Array.isArray(arg)) {
-            return arg.map(stringifyArg).join(' ');
+        if (arg instanceof Error) {
+            return arg.stack || `${arg.name}: ${arg.message}`;
         }
+        if (arg instanceof Set) {
+            return `Set(${arg.size}) { ${Array.from(arg).map(String).join(', ')} }`;
+        }
+        if (arg instanceof Map) {
+            return `Map(${arg.size}) { ${Array.from(arg).map(([k, v]) => `${k} => ${v}`).join(', ')} }`;
+        }
+        if (Array.isArray(arg)) {
+            const items = [];
+            for (let i = 0; i < arg.length; i++) {
+                items.push(i in arg ? stringifyArg(arg[i]) : '<empty>');
+            }
+            return `[ ${items.join(', ')} ]`;
+        }
+
+        // For regular objects, use JSON.stringify first for clean output
         try {
             return JSON.stringify(arg);
         } catch {
+            // For objects that can't be JSON stringified (circular refs etc)
+            // fall back to Object.prototype.toString behavior
             return Object.prototype.toString.call(arg);
         }
     }
+
     return String(arg);
 }
 

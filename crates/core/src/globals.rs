@@ -83,36 +83,37 @@ fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
     }
 }
 
-
 fn build_console_writer<'js>(this: Ctx<'js>) -> Result<Function<'js>, rquickjs::Error> {
     Function::new(
         this.clone(),
         MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             if args.len() != 2 {
-                let err = rquickjs::String::from_str(cx.clone(), "Expected level and message arguments")?;
-                return Err(cx.throw(err.into_value()));
+                return Err(to_js_error(
+                    cx.clone(),
+                    anyhow!("Expected level and message arguments"),
+                ));
             }
             
-            let level = args[0].as_string()
+            let level = args[0]
+                .as_string()
+                .and_then(|s| s.to_string().ok())
                 .ok_or_else(|| {
-                    let err = rquickjs::String::from_str(cx.clone(), "Level must be a string").unwrap();
-                    cx.throw(err.into_value())
-                })?
-                .to_string()?;
+                    to_js_error(cx.clone(), anyhow!("Level must be a string"))
+                })?;
                 
-            let message = args[1].as_string()
+            let message = args[1]
+                .as_string()
+                .and_then(|s| s.to_string().ok())
                 .ok_or_else(|| {
-                    let err = rquickjs::String::from_str(cx.clone(), "Message must be a string").unwrap();
-                    cx.throw(err.into_value())
-                })?
-                .to_string()?;
+                    to_js_error(cx.clone(), anyhow!("Message must be a string"))
+                })?;
 
             match level.as_str() {
                 "info" | "log" => info!("{}", message),
                 "warn" => warn!("{}", message),
                 "error" => error!("{}", message),
                 "debug" => debug!("{}", message),
-                _ => warn!("{}", message) // Default to warn for unknown levels
+                _ => warn!("{}", message) // Default to warn for unknown levels, this should never happen
             }
             
             Ok(())
