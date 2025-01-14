@@ -15,8 +15,7 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
     context.with(|this| {
         let module = build_module_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
 
-        let console =
-            build_console_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
+        let console_write = build_console_writer(this.clone())?;
         let var = build_var_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let http = build_http_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let cfg = build_config_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
@@ -26,7 +25,7 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         let mem = build_memory(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let host = build_host_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let global = this.globals();
-        global.set("console", console)?;
+        global.set("__consoleWrite", console_write)?;
         global.set("module", module)?;
         global.set("Host", host)?;
         global.set("Var", var)?;
@@ -74,19 +73,6 @@ extern "C" {
     ) -> u64;
 }
 
-fn get_args_as_str(args: &Rest<Value>) -> anyhow::Result<String> {
-    args.iter()
-        .map(|arg| {
-            arg.clone()
-                .into_string()
-                .ok_or(rquickjs::Error::Unknown)
-                .and_then(|s| s.to_string())
-        })
-        .collect::<Result<Vec<String>, _>>()
-        .map(|vec| vec.join(" "))
-        .context("Failed to convert args to string")
-}
-
 fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
     match e.downcast::<rquickjs::Error>() {
         Ok(e) => e,
@@ -97,44 +83,41 @@ fn to_js_error(cx: Ctx, e: anyhow::Error) -> rquickjs::Error {
     }
 }
 
-fn build_console_object(this: Ctx) -> anyhow::Result<Object> {
-    let console = Object::new(this.clone())?;
-    let console_info_callback = Function::new(
+
+fn build_console_writer<'js>(this: Ctx<'js>) -> Result<Function<'js>, rquickjs::Error> {
+    Function::new(
         this.clone(),
-        MutFn::new(move |cx, args| {
-            let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
-            info!("{}", statement);
-            Ok::<_, rquickjs::Error>(())
+        MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
+            if args.len() != 2 {
+                let err = rquickjs::String::from_str(cx.clone(), "Expected level and message arguments")?;
+                return Err(cx.throw(err.into_value()));
+            }
+            
+            let level = args[0].as_string()
+                .ok_or_else(|| {
+                    let err = rquickjs::String::from_str(cx.clone(), "Level must be a string").unwrap();
+                    cx.throw(err.into_value())
+                })?
+                .to_string()?;
+                
+            let message = args[1].as_string()
+                .ok_or_else(|| {
+                    let err = rquickjs::String::from_str(cx.clone(), "Message must be a string").unwrap();
+                    cx.throw(err.into_value())
+                })?
+                .to_string()?;
+
+            match level.as_str() {
+                "info" | "log" => info!("{}", message),
+                "warn" => warn!("{}", message),
+                "error" => error!("{}", message),
+                "debug" => debug!("{}", message),
+                _ => warn!("{}", message) // Default to warn for unknown levels
+            }
+            
+            Ok(())
         }),
-    )?;
-    console.set("log", console_info_callback.clone())?;
-    console.set("info", console_info_callback)?;
-
-    console.set(
-        "error",
-        Function::new(
-            this.clone(),
-            MutFn::new(move |cx, args| {
-                let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
-                warn!("{}", statement);
-                Ok::<_, rquickjs::Error>(())
-            }),
-        ),
-    )?;
-
-    console.set(
-        "debug",
-        Function::new(
-            this.clone(),
-            MutFn::new(move |cx, args| {
-                let statement = get_args_as_str(&args).map_err(|e| to_js_error(cx, e))?;
-                debug!("{}", &statement);
-                Ok::<_, rquickjs::Error>(())
-            }),
-        ),
-    )?;
-
-    Ok(console)
+    )
 }
 
 fn build_module_object(this: Ctx) -> anyhow::Result<Object> {
