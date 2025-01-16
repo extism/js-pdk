@@ -1,4 +1,4 @@
-export function greet() {
+function greet() {
   const base64String = "SGVsbG8g8J+MjSBXb3JsZCHwn4yN";
 
   console.log('decoding string:', base64String);
