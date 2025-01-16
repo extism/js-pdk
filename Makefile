@@ -73,6 +73,7 @@ endif
 			echo "Got: $$error_msg"; \
 			exit 1; \
 		fi
+		@extism call examples/base64.wasm greet --wasi --input="Benjamin" --log-level=debug
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
@@ -81,6 +82,7 @@ compile-examples: cli
 		./target/release/extism-js examples/host_funcs/script.js -i examples/host_funcs/script.d.ts -o examples/host_funcs.wasm
 		./target/release/extism-js examples/exports/script.js -i examples/exports/script.d.ts -o examples/exports.wasm
 		./target/release/extism-js examples/exception/script.js -i examples/exception/script.d.ts -o examples/exception.wasm
+		./target/release/extism-js examples/base64/script.js -i examples/base64/script.d.ts -o examples/base64.wasm
 
 kitchen: 
 	cd examples/kitchen-sink && npm install && npm run build && cd ../..
