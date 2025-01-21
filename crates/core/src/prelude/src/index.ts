@@ -17,3 +17,4 @@ import "./http";
 import "./memory";
 import "./memory-handle";
 import "./var";
+import "./console";
