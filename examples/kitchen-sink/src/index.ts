@@ -34,5 +34,6 @@ export function greet() {
   const mem = Memory.fromString("Hello, " + body.data + " " + configLastName);
   Host.outputString(mem.readString()); // TODO: ideally have a way to output memory directly
   mem.free();
+  
   return 0;
 }

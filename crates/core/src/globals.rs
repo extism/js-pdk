@@ -172,37 +172,24 @@ fn build_host_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
         this.clone(),
         MutFn::new(move |cx: Ctx<'js>, args: Rest<Value<'js>>| {
             let data = args.first().unwrap();
-            if !data.is_array() {
-                return Err::<_, rquickjs::Error>(to_js_error(
-                    cx.clone(),
-                    anyhow!("Expect an array buffer"),
-                ));
-            }
 
-            let Some(data) = data.as_array() else {
-                return Err::<_, rquickjs::Error>(to_js_error(
-                    cx.clone(),
-                    anyhow!("Could not convert arg to array buffer"),
-                ));
-            };
+            let data = data
+                .as_object()
+                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected an ArrayBuffer")))?;
 
             if !data.is_array_buffer() {
-                return Err::<_, rquickjs::Error>(to_js_error(
-                    cx.clone(),
-                    anyhow!("Expected an array buffer"),
-                ));
+                return Err(to_js_error(cx.clone(), anyhow!("Expected an ArrayBuffer")));
             }
 
-            let Some(data) = data.as_array_buffer() else {
-                return Err::<_, rquickjs::Error>(to_js_error(
-                    cx.clone(),
-                    anyhow!("Could not convert the array to an arrayBuffer"),
-                ));
-            };
-            use base64::prelude::*;
             let bytes = data
+                .as_array_buffer()
+                .expect("Should be able to cast data as an array buffer")
                 .as_bytes()
-                .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Could not convert to bytes")))?;
+                .ok_or_else(|| {
+                    to_js_error(cx.clone(), anyhow!("Could not get bytes from ArrayBuffer"))
+                })?;
+
+            use base64::prelude::*;
             let as_string = BASE64_STANDARD.encode(bytes);
 
             rquickjs::String::from_str(cx.clone(), &as_string)
