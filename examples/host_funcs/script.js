@@ -1,25 +1,35 @@
 // Extract host functions by name.
 // Note: these must be declared in the d.ts file
-const { myHostFunction1, myHostFunction2 } = Host.getFunctions()
+const { capitalize, floatInputs, floatOutput, voidInputs } = Host.getFunctions()
 
 function greet() {
-  let msg = "Hello from js 1"
-  let mem = Memory.fromString(msg)
-  let offset = myHostFunction1(mem.offset)
-  let response = Memory.find(offset).readString()
-  if (response != "myHostFunction1: " + msg) {
-    throw Error(`wrong message came back from myHostFunction1: ${response}`)
+  const name = Host.inputString();
+  const mem = Memory.fromString(name);
+  const capNameOffset = capitalize(mem.offset);
+  const capName = mem.readString(capNameOffset);
+  console.log(`Hello, ${capName}!`);
+
+  const f32 = 314_567.5;
+  const i32 = 2_147_483_647;
+  const f64 = 9_007_199_254_740.125;
+  const i64 = 9_223_372_036_854_775_807;
+
+  const num1 = floatInputs(f64, f32);
+  console.log(`floatInputs result: ${num1}`);
+  if (num1 != i32) {
+    throw new Error(`Unexpected floatInputs result: ${num1}. Expected: ${i32}`);
   }
 
-  msg = { hello: "world!" }
-  mem = Memory.fromJsonObject(msg)
-  offset = myHostFunction2(mem.offset)
-  response = Memory.find(offset).readJsonObject()
-  if (response.hello != "myHostFunction2") {
-    throw Error(`wrong message came back from myHostFunction2: ${response}`)
+  const num2 = floatOutput(i32);
+  console.log(`floatOutput result: ${num2}`);
+  if (Math.abs(num2 - f64) >= 0.001) {
+    throw new Error(`Unexpected floatOutput result: ${num2}. Expected: ${f64}`);
   }
 
-  Host.outputString(`Hello, World!`)
+  voidInputs(i32, i64, f32, f64, i32);
+
+  console.log("All tests passed!");
+  Host.outputString(`Hello, ${capName}!`);
 }
 
 module.exports = { greet }
