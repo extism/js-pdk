@@ -47,6 +47,7 @@ extern "C" fn init() {
                 Ok(()) => (),
                 Err(err) => return Err(check_exception(&this, err)),
             }
+
             Ok(Undefined)
         })
         .unwrap();
@@ -99,6 +100,10 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
         let function: Function = exports.get(export_names[idx as usize].as_str()).unwrap();
 
         let function_invocation_result = function.call_arg(args);
+
+        while ctx.execute_pending_job() {
+            continue
+        }
 
         match function_invocation_result {
             Ok(r) => {

@@ -63,6 +63,14 @@ test: compile-examples
 		fi
 		@extism call examples/console.wasm greet --wasi --input="Benjamin" --log-level=debug
 		@extism call examples/base64.wasm greet --wasi --input="Benjamin" --log-level=debug
+		@error_msg=$$(extism call examples/try-catch.wasm greet --wasi --input="Benjamin" --log-level debug 2>&1); \
+		if echo "$$error_msg" | grep -q "got error"; then \
+			echo "Test passed - found expected error"; \
+		else \
+			echo "Test failed - did not find expected error message"; \
+			echo "Got: $$error_msg"; \
+			exit 1; \
+		fi
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
@@ -73,6 +81,7 @@ compile-examples: cli
 		./target/release/extism-js examples/exception/script.js -i examples/exception/script.d.ts -o examples/exception.wasm
 		./target/release/extism-js examples/console/script.js -i examples/console/script.d.ts -o examples/console.wasm
 		./target/release/extism-js examples/base64/script.js -i examples/base64/script.d.ts -o examples/base64.wasm
+		./target/release/extism-js examples/try-catch/script.js -i examples/try-catch/script.d.ts -o examples/try-catch.wasm
 
 kitchen: 
 	cd examples/kitchen-sink && npm install && npm run build && cd ../..
