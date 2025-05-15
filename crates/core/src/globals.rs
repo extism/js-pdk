@@ -88,7 +88,6 @@ fn build_console_writer<'js>(this: Ctx<'js>) -> Result<Function<'js>, rquickjs::
                 .as_string()
                 .and_then(|s| s.to_string().ok())
                 .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Level must be a string")))?;
-
             let message = args[1]
                 .as_string()
                 .and_then(|s| s.to_string().ok())
@@ -283,6 +282,7 @@ fn convert_to_u64_bits(value: &Value, func_id: u32, arg_idx: u32) -> u64 {
         ),
     }
 }
+
 
 fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     let var_set = Function::new(
