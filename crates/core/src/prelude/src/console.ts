@@ -24,7 +24,7 @@ function stringifyArg(arg: any): string {
 
     if (typeof arg === 'object') {
         if (arg instanceof Error) {
-            return arg.stack || `${arg.name}: ${arg.message}`;
+            return `${arg.name}: ${arg.message}\n${arg.stack}`;
         }
         if (arg instanceof Set) {
             return `Set(${arg.size}) { ${Array.from(arg).map(String).join(', ')} }`;
