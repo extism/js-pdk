@@ -253,12 +253,15 @@ module.exports = { count };
 
 ### Logging
 
-At the current time, calling `console.log` emits an `info` log. Please file an
-issue or PR if you want to expose the raw logging interface:
+There are several functions that can be used for logging:
 
 ```javascript
 function logStuff() {
-  console.log("Hello, World!");
+  console.info("Info");
+  console.debug("Debug");
+  console.error("Error");
+  console.warn("Warning");
+  console.log("Log"); // Alias for console.info 
 }
 
 module.exports = { logStuff };
