@@ -71,6 +71,14 @@ test: compile-examples
 			echo "Got: $$error_msg"; \
 			exit 1; \
 		fi
+		@output=$$(extism call examples/async_exception.wasm main --wasi --log-level info 2>&1); \
+		if echo "$$output" | grep -q "wasm error: unreachable"; then \
+			echo "Test failed - found 'wasm error: unreachable' in output"; \
+			echo "Output: $$output"; \
+			exit 1; \
+		else \
+			echo "Test passed - no unreachable error in async_exception"; \
+		fi
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
@@ -82,6 +90,7 @@ compile-examples: cli
 		./target/release/extism-js examples/console/script.js -i examples/console/script.d.ts -o examples/console.wasm
 		./target/release/extism-js examples/base64/script.js -i examples/base64/script.d.ts -o examples/base64.wasm
 		./target/release/extism-js examples/try-catch/script.js -i examples/try-catch/script.d.ts -o examples/try-catch.wasm
+		cd examples/async_exception && npm install && npm run build && cd ../..
 
 kitchen: 
 	cd examples/kitchen-sink && npm install && npm run build && cd ../..

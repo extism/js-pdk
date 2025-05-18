@@ -1,0 +1,21 @@
+{
+  "name": "async_exception-plugin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "cross-env NODE_ENV=production node esbuild.js && cross-env ../../target/release/extism-js dist/index.js -i src/index.d.ts -o ../async_exception.wasm"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "@extism/js-pdk": "../../crates/core/src/prelude",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.19.6",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "shiki": "^3.4.2"
+  }
+}
