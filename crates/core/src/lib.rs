@@ -18,9 +18,26 @@ static CALL_ARGS: std::sync::Mutex<Vec<Vec<ArgType>>> = std::sync::Mutex::new(ve
 fn check_exception(this: &Ctx, err: rquickjs::Error) -> anyhow::Error {
     let s = match err {
         rquickjs::Error::Exception => {
-            let err = this.catch().into_exception().unwrap();
-            let msg = err.message().unwrap_or_default();
-            format!("Exception: {}\n{}", msg, err.stack().unwrap_or_default())
+            // Check if we got a valid exception or if it's uninitialized (possibly due to async code)
+            // - https://github.com/DelSkayn/rquickjs/issues/421
+            // - https://github.com/DelSkayn/rquickjs/pull/422
+            // - https://github.com/quickjs-ng/quickjs/issues/39
+            // - https://github.com/quickjs-ng/quickjs/pull/1038
+
+            match this.catch().into_exception() {
+                Some(err) => {
+                    let msg = err.message().unwrap_or_default();
+                    let stack = err.stack().unwrap_or_default();
+                    format!("Exception: {}\n{}", msg, stack)
+                }
+                None => {
+                    format!(
+                        "Uncaught exception in async context. \
+                        Async/Promise operations are not supported in this environment. \
+                        Please use only synchronous code."
+                    )
+                }
+            }
         }
         err => err.to_string(),
     };
@@ -102,7 +119,7 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
         let function_invocation_result = function.call_arg(args);
 
         while ctx.execute_pending_job() {
-            continue
+            continue;
         }
 
         match function_invocation_result {
