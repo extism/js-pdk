@@ -122,7 +122,7 @@ Some things to note about this code:
    [CJS Module syntax](https://nodejs.org/api/modules.html#modules-commonjs-modules)
    when not using a bundler. So the `export` keyword is not directly supported.
    See the [Using with a Bundler](#using-with-a-bundler) section for more.
-3. In this PDK we code directly to the ABI. We get input from the using using
+3. In this PDK we code directly to the ABI. We get input from the Host using
    `Host.input*` functions and we return data back with the `Host.output*`
    functions.
 
