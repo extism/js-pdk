@@ -18,6 +18,7 @@ declare global {
   interface HttpResponse {
     body: string;
     status: number;
+    headers: Record<string, string>;
   }
 
   var Http: {
