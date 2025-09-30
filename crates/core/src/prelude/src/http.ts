@@ -18,7 +18,10 @@ declare global {
   interface HttpResponse {
     body: string;
     status: number;
-    headers: Record<string, string>;
+    /**
+     * the host needs to enable allow_http_response_headers for this to be present
+     */
+    headers?: Record<string, string>;
   }
 
   var Http: {
