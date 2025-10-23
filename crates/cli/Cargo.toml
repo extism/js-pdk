@@ -18,6 +18,7 @@ swc_atoms = "0.6.5"
 swc_common = "0.33.10"
 swc_ecma_ast = "0.112"
 swc_ecma_parser = "0.143"
+serde = { version = "= 1.0.219", features = ["derive"] }
 wagen = "0.1"
 log = "0.4"
 tempfile = "3"
