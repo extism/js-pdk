@@ -1,13 +1,6 @@
 .PHONY: cli core fmt clean
 .DEFAULT_GOAL := cli
 
-download-wasi-sdk:
-ifeq ($(OS),Windows_NT)
-	powershell -executionpolicy bypass -File .\install-wasi-sdk.ps1
-else
-	sh install-wasi-sdk.sh
-endif
-
 install:
 	cargo install --path crates/cli
 
@@ -39,13 +32,10 @@ fmt-cli:
 				&& cargo clippy -- -D warnings \
 				&& cd -
 
-clean: clean-wasi-sdk clean-cargo
+clean: clean-cargo
 
 clean-cargo:
 		cargo clean
-
-clean-wasi-sdk:
-		rm -r wasi-sdk 2> /dev/null || true
 
 test: compile-examples
 		@extism call examples/simple_js.wasm greet --wasi --input="Benjamin"

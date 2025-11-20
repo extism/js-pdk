@@ -598,12 +598,11 @@ Before compiling the compiler, you need to install prerequisites.
 1. Install Rust using [rustup](https://rustup.rs)
 2. Install the WASI target platform via
    `rustup target add --toolchain stable wasm32-wasip1`
-3. Install the wasi sdk using the makefile command: `make download-wasi-sdk`
-4. Install [CMake](https://cmake.org/install/) (on macOS with homebrew,
+3. Install [CMake](https://cmake.org/install/) (on macOS with homebrew,
    `brew install cmake`)
-5. Install [Binaryen](https://github.com/WebAssembly/binaryen/) and add it's
+4. Install [Binaryen](https://github.com/WebAssembly/binaryen/) and add it's
    install location to your PATH (only wasm-opt is required for build process)
-6. Install [7zip](https://www.7-zip.org/)(only for Windows)
+5. Install [7zip](https://www.7-zip.org/)(only for Windows)
 
 ### Compiling from source
 
