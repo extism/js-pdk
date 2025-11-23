@@ -39,7 +39,7 @@ case "$ARCH" in
   *)                echo "unknown arch: $ARCH" && exit 1 ;;
 esac
 
-BINARYEN_TAG="version_116"
+BINARYEN_TAG="version_125"
 DOWNLOAD_URL="https://github.com/extism/js-pdk/releases/download/$LATEST_TAG/extism-js-$ARCH-$OS-$LATEST_TAG.gz"
 
 # Function to check if a directory is in PATH and writable
@@ -74,10 +74,9 @@ if ! which "wasm-merge" > /dev/null || ! which "wasm-opt" > /dev/null; then
     aarch64*)  ARCH="arm64" ;;
   esac
 
-  # matches the case where the user installs extism-pdk in a Linux-based Docker image running on mac m1
-  # binaryen didn't have arm64 release file for linux 
+  # Upstream binaryen uses arm64 for macos, windows but aarch64 for linux
   if [ $ARCH = "arm64" ] && [ $OS = "linux" ]; then
-    ARCH="x86_64"
+    ARCH="aarch64"
   fi
 
   if [ $OS = "macos" ]; then
