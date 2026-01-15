@@ -8,14 +8,13 @@ This project contains a tool that can be used to create
 
 ## Overview
 
-This PDK uses [QuickJS](https://bellard.org/quickjs/) and
+This PDK uses [quickjs-ng](https://github.com/quickjs-ng/quickjs) (via [rquickjs](https://github.com/DelSkayn/rquickjs)) and
 [wizer](https://github.com/bytecodealliance/wizer) to run javascript as an
 Extism Plug-in.
 
 This is essentially a fork of [Javy](https://github.com/bytecodealliance/javy)
 by Shopify. We may wish to collaborate and upstream some things to them. For the
-time being I built this up from scratch using some of their crates, namely
-quickjs-wasm-rs.
+time being I built this up from scratch using some of their crates.
 
 > Warning: This is a very bare-bones runtime. It's only for running pure JS code
 > and it does not expose node APIs or the browser APIs. We have limited support
@@ -408,7 +407,7 @@ esbuild
     //plugins: [NodeModulesPolyfillPlugin()], // include this if you need some node support
     minify: false, // might want to use true for production build
     format: "cjs", // needs to be CJS for now
-    target: ["es2020"], // don't go over es2020 because quickjs doesn't support it
+    target: ["es2022"], // don't go over es2022 because quickjs-ng doesn't support it, tracked here https://github.com/quickjs-ng/quickjs/issues/54
   });
 ```
 
