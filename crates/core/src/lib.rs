@@ -15,15 +15,19 @@ unsafe impl Sync for Cx {}
 static CONTEXT: std::sync::OnceLock<Cx> = std::sync::OnceLock::new();
 static CALL_ARGS: std::sync::Mutex<Vec<Vec<ArgType>>> = std::sync::Mutex::new(vec![]);
 
-fn check_exception(this: &Ctx, err: rquickjs::Error) -> anyhow::Error {
-    let s = match err {
+fn err_into_string(this: &Ctx, err: rquickjs::Error) -> String {
+    match err {
         rquickjs::Error::Exception => {
             let err = this.catch().into_exception().unwrap();
             let msg = err.message().unwrap_or_default();
             format!("Exception: {}\n{}", msg, err.stack().unwrap_or_default())
         }
         err => err.to_string(),
-    };
+    }
+}
+
+fn check_exception(this: &Ctx, err: rquickjs::Error) -> anyhow::Error {
+    let s = err_into_string(this, err);
 
     let mem = extism_pdk::Memory::from_bytes(&s).unwrap();
     unsafe {
@@ -43,9 +47,8 @@ extern "C" fn init() {
 
     context
         .with(|this| -> Result<rquickjs::Undefined, anyhow::Error> {
-            match this.eval(code) {
-                Ok(()) => (),
-                Err(err) => return Err(check_exception(&this, err)),
+            if let Err(err) = this.eval::<(), _>(code) {
+                panic!("{}", err_into_string(&this, err).to_string());
             }
 
             Ok(Undefined)
