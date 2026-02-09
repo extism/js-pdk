@@ -175,6 +175,18 @@ test: compile-examples
 			echo "Got: $$output"; \
 			exit 1; \
 		fi
+		@output=$$(extism call examples/async_exception.wasm greet --wasi 2>&1); \
+		if echo "$$output" | grep -q "wasm error: unreachable"; then \
+			echo "Test failed - async_exception: got panic instead of clean error"; \
+			echo "Output: $$output"; \
+			exit 1; \
+		elif echo "$$output" | grep -q "not a function"; then \
+			echo "Test passed - async_exception: got clean error"; \
+		else \
+			echo "Test failed - async_exception: unexpected output"; \
+			echo "Output: $$output"; \
+			exit 1; \
+		fi
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
@@ -200,6 +212,7 @@ compile-examples: cli
 		./target/release/extism-js examples/buffer/script.js -i examples/buffer/script.d.ts -o examples/buffer.wasm
 		cd examples/buffer_npm && npm install && node esbuild.js && cd ../..
 		./target/release/extism-js examples/buffer_npm/dist/index.js -i examples/buffer_npm/src/index.d.ts -o examples/buffer_npm.wasm
+		./target/release/extism-js examples/async_exception/script.js -i examples/async_exception/script.d.ts -o examples/async_exception.wasm
 
 kitchen: 
 	cd examples/kitchen-sink && npm install && npm run build && cd ../..
