@@ -15,25 +15,25 @@ unsafe impl Sync for Cx {}
 static CONTEXT: std::sync::OnceLock<Cx> = std::sync::OnceLock::new();
 static CALL_ARGS: std::sync::Mutex<Vec<Vec<ArgType>>> = std::sync::Mutex::new(vec![]);
 
-fn err_into_string(this: &Ctx, err: rquickjs::Error) -> String {
-    match err {
-        rquickjs::Error::Exception => {
-            let err = this.catch().into_exception().unwrap();
+fn caught_to_string(caught: Value) -> String {
+    match caught.as_exception() {
+        Some(err) => {
             let msg = err.message().unwrap_or_default();
             format!("Exception: {}\n{}", msg, err.stack().unwrap_or_default())
         }
-        err => err.to_string(),
+        None => {
+            // The caught value is not a JS Error object. It could be a string,
+            // number, null, or an uninitialized value from an async context.
+            format!("Exception: {:?}", caught)
+        }
     }
 }
 
-fn check_exception(this: &Ctx, err: rquickjs::Error) -> anyhow::Error {
-    let s = err_into_string(this, err);
-
-    let mem = extism_pdk::Memory::from_bytes(&s).unwrap();
-    unsafe {
-        extism_pdk::extism::error_set(mem.offset());
+fn err_into_string(this: &Ctx, err: rquickjs::Error) -> String {
+    match err {
+        rquickjs::Error::Exception => caught_to_string(this.catch()),
+        err => err.to_string(),
     }
-    anyhow::Error::msg(s)
 }
 
 #[export_name = "wizer.initialize"]
@@ -104,8 +104,16 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
 
         let function_invocation_result = function.call_arg(args);
 
+        // If the function call failed, catch the exception now before
+        // execute_pending_job() can consume or overwrite it.
+        let call_err = if function_invocation_result.is_err() {
+            Some(ctx.catch())
+        } else {
+            None
+        };
+
         while ctx.execute_pending_job() {
-            continue
+            continue;
         }
 
         match function_invocation_result {
@@ -113,7 +121,21 @@ fn invoke<'a, T, F: for<'b> Fn(Ctx<'b>, Value<'b>) -> T>(
                 let res = conv(ctx.clone(), r);
                 Ok(res)
             }
-            Err(err) => Err(check_exception(&ctx, err)),
+            Err(err) => {
+                // Use the exception we caught earlier (before execute_pending_job
+                // could overwrite it).
+                let s = match call_err {
+                    Some(caught) if !caught.is_null() && !caught.is_undefined() => {
+                        caught_to_string(caught)
+                    }
+                    _ => err_into_string(&ctx, err),
+                };
+                let mem = extism_pdk::Memory::from_bytes(&s).unwrap();
+                unsafe {
+                    extism_pdk::extism::error_set(mem.offset());
+                }
+                Err(anyhow::Error::msg(s))
+            }
         }
     })
 }
