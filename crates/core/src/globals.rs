@@ -22,6 +22,9 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         let decoder = build_decoder(this.clone())?;
         let encoder = build_encoder(this.clone())?;
         let clock = build_clock(this.clone())?;
+        let clock_ms = build_clock_ms(this.clone())?;
+        let random_bytes = build_random_bytes(this.clone())?;
+        let sha_digest = build_sha_digest(this.clone())?;
         let mem = build_memory(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let host = build_host_object(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
         let global = this.globals();
@@ -35,6 +38,9 @@ pub fn inject_globals(context: &JSContext) -> anyhow::Result<()> {
         global.set("__decodeUtf8BufferToString", decoder)?;
         global.set("__encodeStringToUtf8Buffer", encoder)?;
         global.set("__getTime", clock)?;
+        global.set("__getTimeMs", clock_ms)?;
+        global.set("__getRandomBytes", random_bytes)?;
+        global.set("__shaDigest", sha_digest)?;
 
         add_host_functions(this.clone()).map_err(|e| to_js_error(this.clone(), e))?;
 
@@ -271,7 +277,7 @@ fn convert_to_u64_bits(value: &Value, func_id: u32, arg_idx: u32) -> u64 {
         }
         TYPE_F64 => value
             .as_float()
-            .or_else(|| value.as_number().map(|n| n as f64))
+            .or_else(|| value.as_number())
             .unwrap_or_default()
             .to_bits(),
         _ => panic!(
@@ -386,7 +392,7 @@ fn build_var_object<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     )?;
     let var_object = Object::new(this.clone())?;
     var_object.set("set", var_set)?;
-    var_object.set("getBytex", var_get)?;
+    var_object.set("getBytes", var_get)?;
     var_object.set("getString", var_get_str)?;
     Ok(var_object)
 }
@@ -686,8 +692,96 @@ fn build_memory<'js>(this: Ctx<'js>) -> anyhow::Result<Object<'js>> {
     Ok(mem_obj)
 }
 
+fn build_random_bytes(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, get_random_bytes())
+}
+
+fn build_sha_digest(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, sha_digest())
+}
+
+fn sha_digest<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(|cx: Ctx<'js>, args: Rest<Value<'js>>| {
+        use sha2::Digest;
+
+        let algo = args
+            .first()
+            .and_then(|v| v.as_string())
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected algorithm name")))?
+            .to_string()?;
+
+        let data = args
+            .get(1)
+            .and_then(|v| ArrayBuffer::from_value(v.clone()))
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected ArrayBuffer data")))?;
+
+        let bytes = data
+            .as_bytes()
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Could not read ArrayBuffer")))?;
+
+        let result: Vec<u8> = match algo.as_str() {
+            "SHA-1" => {
+                let mut hasher = sha1::Sha1::new();
+                hasher.update(bytes);
+                hasher.finalize().to_vec()
+            }
+            "SHA-256" => {
+                let mut hasher = sha2::Sha256::new();
+                hasher.update(bytes);
+                hasher.finalize().to_vec()
+            }
+            "SHA-384" => {
+                let mut hasher = sha2::Sha384::new();
+                hasher.update(bytes);
+                hasher.finalize().to_vec()
+            }
+            "SHA-512" => {
+                let mut hasher = sha2::Sha512::new();
+                hasher.update(bytes);
+                hasher.finalize().to_vec()
+            }
+            _ => {
+                return Err(to_js_error(
+                    cx,
+                    anyhow!("Unsupported algorithm: {}", algo),
+                ))
+            }
+        };
+
+        Ok(ArrayBuffer::new(cx, result)?.into_value())
+    })
+}
+
+fn get_random_bytes<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(|cx: Ctx<'js>, args: Rest<Value<'js>>| {
+        let n = args
+            .first()
+            .and_then(|v| v.as_number())
+            .ok_or_else(|| to_js_error(cx.clone(), anyhow!("Expected byte count argument")))?
+            as usize;
+        let mut buf = vec![0u8; n];
+        getrandom::getrandom(&mut buf)
+            .map_err(|e| to_js_error(cx.clone(), anyhow!("getrandom failed: {}", e)))?;
+        Ok(ArrayBuffer::new(cx, buf)?.into_value())
+    })
+}
+
 fn build_clock(this: Ctx) -> rquickjs::Result<Function> {
     Function::new(this, get_time())
+}
+
+fn build_clock_ms(this: Ctx) -> rquickjs::Result<Function> {
+    Function::new(this, get_time_ms())
+}
+
+fn get_time_ms<'js>(
+) -> MutFn<impl Fn(Ctx<'js>, Rest<Value<'js>>) -> rquickjs::Result<Value<'js>>> {
+    MutFn::new(|cx: Ctx<'js>, _args| {
+        let now = Utc::now();
+        Ok(Value::new_float(cx, now.timestamp_millis() as f64))
+    })
 }
 
 fn build_decoder(this: Ctx) -> rquickjs::Result<Function> {
