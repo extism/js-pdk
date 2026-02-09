@@ -71,6 +71,110 @@ test: compile-examples
 			echo "Got: $$error_msg"; \
 			exit 1; \
 		fi
+		@output=$$(extism call examples/atob_btoa.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - atob/btoa"; \
+		else \
+			echo "Test failed - atob/btoa"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/structured_clone.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - structuredClone"; \
+		else \
+			echo "Test failed - structuredClone"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/perf.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - performance"; \
+		else \
+			echo "Test failed - performance"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/console_extra.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - console extras"; \
+		else \
+			echo "Test failed - console extras"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/encode_into.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - TextEncoder.encodeInto"; \
+		else \
+			echo "Test failed - TextEncoder.encodeInto"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/fetch.wasm greet --wasi --allow-host "example.com" --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - fetch"; \
+		else \
+			echo "Test failed - fetch"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/crypto.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - crypto"; \
+		else \
+			echo "Test failed - crypto"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/compat.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - compat"; \
+		else \
+			echo "Test failed - compat"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/event.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - event"; \
+		else \
+			echo "Test failed - event"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/console_table.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - console_table"; \
+		else \
+			echo "Test failed - console_table"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/subtle_digest.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - subtle_digest"; \
+		else \
+			echo "Test failed - subtle_digest"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/buffer.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - buffer"; \
+		else \
+			echo "Test failed - buffer"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
+		@output=$$(extism call examples/buffer_npm.wasm greet --wasi --log-level debug 2>&1); \
+		if echo "$$output" | grep -q "all tests passed"; then \
+			echo "Test passed - buffer_npm"; \
+		else \
+			echo "Test failed - buffer_npm"; \
+			echo "Got: $$output"; \
+			exit 1; \
+		fi
 
 compile-examples: cli
 		cd examples/react && npm install && npm run build && cd ../..
@@ -82,6 +186,20 @@ compile-examples: cli
 		./target/release/extism-js examples/console/script.js -i examples/console/script.d.ts -o examples/console.wasm
 		./target/release/extism-js examples/base64/script.js -i examples/base64/script.d.ts -o examples/base64.wasm
 		./target/release/extism-js examples/try-catch/script.js -i examples/try-catch/script.d.ts -o examples/try-catch.wasm
+		./target/release/extism-js examples/atob_btoa/script.js -i examples/atob_btoa/script.d.ts -o examples/atob_btoa.wasm
+		./target/release/extism-js examples/structured_clone/script.js -i examples/structured_clone/script.d.ts -o examples/structured_clone.wasm
+		./target/release/extism-js examples/perf/script.js -i examples/perf/script.d.ts -o examples/perf.wasm
+		./target/release/extism-js examples/console_extra/script.js -i examples/console_extra/script.d.ts -o examples/console_extra.wasm
+		./target/release/extism-js examples/encode_into/script.js -i examples/encode_into/script.d.ts -o examples/encode_into.wasm
+		./target/release/extism-js examples/fetch/script.js -i examples/fetch/script.d.ts -o examples/fetch.wasm
+		./target/release/extism-js examples/crypto/script.js -i examples/crypto/script.d.ts -o examples/crypto.wasm
+		./target/release/extism-js examples/compat/script.js -i examples/compat/script.d.ts -o examples/compat.wasm
+		./target/release/extism-js examples/event/script.js -i examples/event/script.d.ts -o examples/event.wasm
+		./target/release/extism-js examples/console_table/script.js -i examples/console_table/script.d.ts -o examples/console_table.wasm
+		./target/release/extism-js examples/subtle_digest/script.js -i examples/subtle_digest/script.d.ts -o examples/subtle_digest.wasm
+		./target/release/extism-js examples/buffer/script.js -i examples/buffer/script.d.ts -o examples/buffer.wasm
+		cd examples/buffer_npm && npm install && node esbuild.js && cd ../..
+		./target/release/extism-js examples/buffer_npm/dist/index.js -i examples/buffer_npm/src/index.d.ts -o examples/buffer_npm.wasm
 
 kitchen: 
 	cd examples/kitchen-sink && npm install && npm run build && cd ../..

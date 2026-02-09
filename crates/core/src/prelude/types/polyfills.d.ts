@@ -219,6 +219,12 @@ interface TextEncoderCommon {
 
 /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console) */
 interface Console {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/assert_static) */
+  assert(condition?: boolean, ...data: any[]): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/count_static) */
+  count(label?: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/countReset_static) */
+  countReset(label?: string): void;
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/debug_static) */
   debug(...data: any[]): void;
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/error_static) */
@@ -227,8 +233,302 @@ interface Console {
   info(...data: any[]): void;
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/log_static) */
   log(...data: any[]): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/time_static) */
+  time(label?: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/timeEnd_static) */
+  timeEnd(label?: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/timeLog_static) */
+  timeLog(label?: string, ...data: any[]): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/table_static) */
+  table(data: any, columns?: string[]): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/trace_static) */
+  trace(...data: any[]): void;
   /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/console/warn_static) */
   warn(...data: any[]): void;
 }
 
 declare var console: Console;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/atob) */
+declare function atob(data: string): string;
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/btoa) */
+declare function btoa(data: string): string;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/structuredClone) */
+declare function structuredClone<T>(value: T): T;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Performance) */
+interface Performance {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Performance/now) */
+  now(): number;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Performance/timeOrigin) */
+  readonly timeOrigin: number;
+}
+
+declare var performance: Performance;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers) */
+interface Headers {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/append) */
+  append(name: string, value: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/delete) */
+  delete(name: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/get) */
+  get(name: string): string | null;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/has) */
+  has(name: string): boolean;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/set) */
+  set(name: string, value: string): void;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Headers/forEach) */
+  forEach(
+    callback: (value: string, key: string, parent: Headers) => void,
+  ): void;
+  entries(): [string, string][];
+  keys(): string[];
+  values(): string[];
+}
+
+declare var Headers: {
+  prototype: Headers;
+  new (
+    init?: Record<string, string> | [string, string][] | Headers,
+  ): Headers;
+};
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response) */
+interface Response {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/body) */
+  readonly bodyUsed: boolean;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/headers) */
+  readonly headers: Headers;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/ok) */
+  readonly ok: boolean;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/status) */
+  readonly status: number;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/statusText) */
+  readonly statusText: string;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/url) */
+  readonly url: string;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/arrayBuffer) */
+  arrayBuffer(): Promise<ArrayBuffer>;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/clone) */
+  clone(): Response;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/json) */
+  json(): Promise<any>;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/text) */
+  text(): Promise<string>;
+}
+
+declare var Response: {
+  prototype: Response;
+  new (body?: string | null, init?: ResponseInit): Response;
+};
+
+interface ResponseInit {
+  headers?: Headers | Record<string, string> | [string, string][];
+  status?: number;
+  statusText?: string;
+}
+
+interface RequestInit {
+  body?: string;
+  headers?: Headers | Record<string, string> | [string, string][];
+  method?: string;
+}
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/fetch) */
+declare function fetch(
+  input: string | URL,
+  init?: RequestInit,
+): Promise<Response>;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Crypto) */
+interface Crypto {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Crypto/getRandomValues) */
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Crypto/randomUUID) */
+  randomUUID(): `${string}-${string}-${string}-${string}-${string}`;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Crypto/subtle) */
+  readonly subtle: SubtleCrypto;
+}
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/SubtleCrypto) */
+interface SubtleCrypto {
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/SubtleCrypto/digest) */
+  digest(
+    algorithm: string | { name: string },
+    data: ArrayBuffer | ArrayBufferView,
+  ): Promise<ArrayBuffer>;
+}
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/crypto) */
+declare var crypto: Crypto;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/DOMException) */
+interface DOMException extends Error {
+  readonly code: number;
+  readonly name: string;
+  readonly message: string;
+}
+
+declare var DOMException: {
+  prototype: DOMException;
+  new (message?: string, name?: string): DOMException;
+};
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Event) */
+interface Event {
+  readonly type: string;
+  readonly target: EventTarget | null;
+  readonly currentTarget: EventTarget | null;
+  readonly bubbles: boolean;
+  readonly cancelable: boolean;
+  readonly defaultPrevented: boolean;
+  readonly timeStamp: number;
+  preventDefault(): void;
+  stopPropagation(): void;
+  stopImmediatePropagation(): void;
+}
+
+declare var Event: {
+  prototype: Event;
+  new (
+    type: string,
+    eventInitDict?: { bubbles?: boolean; cancelable?: boolean },
+  ): Event;
+};
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventTarget) */
+interface EventTarget {
+  addEventListener(
+    type: string,
+    callback: Function | null,
+    options?: { once?: boolean } | boolean,
+  ): void;
+  removeEventListener(type: string, callback: Function | null): void;
+  dispatchEvent(event: Event): boolean;
+}
+
+declare var EventTarget: {
+  prototype: EventTarget;
+  new (): EventTarget;
+};
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/queueMicrotask) */
+declare function queueMicrotask(callback: () => void): void;
+
+/** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Window/self) */
+declare var self: typeof globalThis;
+
+/** [Node.js Reference](https://nodejs.org/api/buffer.html) */
+declare class Buffer extends Uint8Array {
+  static from(
+    value: string,
+    encoding?: BufferEncoding,
+  ): Buffer;
+  static from(
+    value: ArrayBuffer,
+    byteOffset?: number,
+    length?: number,
+  ): Buffer;
+  static from(value: Buffer | Uint8Array | number[]): Buffer;
+  static from(value: { type: "Buffer"; data: number[] }): Buffer;
+  static alloc(
+    size: number,
+    fill?: number | string | Buffer,
+    encoding?: BufferEncoding,
+  ): Buffer;
+  static allocUnsafe(size: number): Buffer;
+  static isBuffer(obj: any): obj is Buffer;
+  static isEncoding(encoding: string): boolean;
+  static byteLength(string: string, encoding?: BufferEncoding): number;
+  static concat(
+    list: (Buffer | Uint8Array)[],
+    totalLength?: number,
+  ): Buffer;
+  static compare(buf1: Buffer, buf2: Buffer): number;
+
+  toString(encoding?: BufferEncoding, start?: number, end?: number): string;
+  toJSON(): { type: "Buffer"; data: number[] };
+  equals(otherBuffer: Buffer | Uint8Array): boolean;
+  compare(
+    target: Buffer | Uint8Array,
+    targetStart?: number,
+    targetEnd?: number,
+    sourceStart?: number,
+    sourceEnd?: number,
+  ): number;
+  copy(
+    target: Buffer | Uint8Array,
+    targetStart?: number,
+    sourceStart?: number,
+    sourceEnd?: number,
+  ): number;
+  write(
+    string: string,
+    offset?: number,
+    length?: number,
+    encoding?: BufferEncoding,
+  ): number;
+  slice(start?: number, end?: number): Buffer;
+  indexOf(
+    value: number | string | Buffer | Uint8Array,
+    byteOffset?: number,
+    encoding?: BufferEncoding,
+  ): number;
+  includes(
+    value: number | string | Buffer | Uint8Array,
+    byteOffset?: number,
+    encoding?: BufferEncoding,
+  ): boolean;
+  fill(
+    value: number | string | Buffer | Uint8Array,
+    offset?: number,
+    end?: number,
+    encoding?: BufferEncoding,
+  ): this;
+
+  readUInt8(offset?: number): number;
+  readUInt16BE(offset?: number): number;
+  readUInt16LE(offset?: number): number;
+  readUInt32BE(offset?: number): number;
+  readUInt32LE(offset?: number): number;
+  readInt8(offset?: number): number;
+  readInt16BE(offset?: number): number;
+  readInt16LE(offset?: number): number;
+  readInt32BE(offset?: number): number;
+  readInt32LE(offset?: number): number;
+  readFloatBE(offset?: number): number;
+  readFloatLE(offset?: number): number;
+  readDoubleBE(offset?: number): number;
+  readDoubleLE(offset?: number): number;
+
+  writeUInt8(value: number, offset?: number): number;
+  writeUInt16BE(value: number, offset?: number): number;
+  writeUInt16LE(value: number, offset?: number): number;
+  writeUInt32BE(value: number, offset?: number): number;
+  writeUInt32LE(value: number, offset?: number): number;
+  writeInt8(value: number, offset?: number): number;
+  writeInt16BE(value: number, offset?: number): number;
+  writeInt16LE(value: number, offset?: number): number;
+  writeInt32BE(value: number, offset?: number): number;
+  writeInt32LE(value: number, offset?: number): number;
+  writeFloatBE(value: number, offset?: number): number;
+  writeFloatLE(value: number, offset?: number): number;
+  writeDoubleBE(value: number, offset?: number): number;
+  writeDoubleLE(value: number, offset?: number): number;
+}
+
+type BufferEncoding =
+  | "utf8"
+  | "utf-8"
+  | "ascii"
+  | "latin1"
+  | "binary"
+  | "base64"
+  | "base64url"
+  | "hex"
+  | "ucs2"
+  | "ucs-2"
+  | "utf16le"
+  | "utf-16le";
