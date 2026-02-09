@@ -1,4 +1,4 @@
-function greet() {
+async function greet() {
   var pass = true;
 
   // --- Test Headers class ---
@@ -89,15 +89,11 @@ function greet() {
   var cloned = res.clone();
 
   // text()
-  var bodyText = res.text();
-  // Since our runtime returns resolved promises synchronously via await
-  // we test Promise-based API
-  bodyText.then(function (text) {
-    if (text !== '{"message":"hello"}') {
-      console.error("FAIL: Response.text()");
-      pass = false;
-    }
-  });
+  var bodyText = await res.text();
+  if (bodyText !== '{"message":"hello"}') {
+    console.error("FAIL: Response.text()");
+    pass = false;
+  }
 
   // bodyUsed after consuming
   if (!res.bodyUsed) {
@@ -106,12 +102,11 @@ function greet() {
   }
 
   // json() on cloned response
-  cloned.json().then(function (obj) {
-    if (obj.message !== "hello") {
-      console.error("FAIL: Response.json()");
-      pass = false;
-    }
-  });
+  var obj = await cloned.json();
+  if (obj.message !== "hello") {
+    console.error("FAIL: Response.json()");
+    pass = false;
+  }
 
   // 404 response should not be ok
   var res404 = new Response("Not Found", { status: 404 });
@@ -126,38 +121,53 @@ function greet() {
 
   console.log("Response tests: OK");
 
-  // --- Test fetch() with real HTTP (Promise-based) ---
-  var resp = fetch("http://example.com");
-  resp.then(function (r) {
+  // --- Test fetch() with real HTTP (Promise-based .then) ---
+  var thenContent = "";
+  var thenPass = false;
+  fetch("http://example.com").then(function (r) {
     if (r.status !== 200) {
-      console.error("FAIL: fetch status, got:", r.status);
-      pass = false;
+      console.error("FAIL: fetch then status, got:", r.status);
+      return;
     }
     if (!r.ok) {
-      console.error("FAIL: fetch ok");
-      pass = false;
+      console.error("FAIL: fetch then ok");
+      return;
     }
     if (r.url !== "http://example.com") {
-      console.error("FAIL: fetch url, got:", r.url);
-      pass = false;
+      console.error("FAIL: fetch then url, got:", r.url);
+      return;
     }
     r.text().then(function (body) {
+      thenContent = body;
       if (body.indexOf("Example Domain") === -1) {
-        console.error("FAIL: fetch body missing expected content");
-        pass = false;
+        console.error("FAIL: fetch then body missing expected content");
+        return;
       }
+      thenPass = true;
       console.log("fetch GET (then): OK");
     });
   });
 
-  // --- Test fetch() with await in async function ---
-  asyncFetchTest();
+  // yield to let the .then microtasks execute
+  await Promise.resolve();
+  await Promise.resolve();
 
-  if (!pass) {
-    throw new Error("fetch tests failed");
+  if (!thenPass) {
+    console.error("FAIL: fetch .then chain did not complete");
+    pass = false;
   }
 
-  Host.outputString("fetch: all tests passed");
+  // --- Test fetch() with await in async function ---
+  var asyncResult = await asyncFetchTest();
+  if (!asyncResult.ok) {
+    pass = false;
+  }
+
+  if (!pass) {
+    throw new Error("fetch tests failed\n| then-content = " + thenContent + "\n| async-content = " + asyncResult.asyncContent);
+  }
+
+  Host.outputString("fetch: all tests passed" + "\n| then-content = " + thenContent + "\n| async-content = " + asyncResult.asyncContent);
 }
 
 async function asyncFetchTest() {
@@ -173,6 +183,7 @@ async function asyncFetchTest() {
     throw new Error("FAIL: await fetch body missing expected content");
   }
   console.log("fetch GET (await): OK");
+  return { ok: true, asyncContent: body }
 }
 
 module.exports = { greet };
