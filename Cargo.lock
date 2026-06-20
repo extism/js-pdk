@@ -1381,7 +1381,7 @@ dependencies = [
 
 [[package]]
 name = "js-pdk-cli"
-version = "1.5.2"
+version = "1.6.1"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -1399,7 +1399,7 @@ dependencies = [
 
 [[package]]
 name = "js-pdk-core"
-version = "1.5.2"
+version = "1.6.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
