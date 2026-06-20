@@ -94,8 +94,8 @@ pub fn generate_wasm_shims(
     let mut get_function_arg_type_builder = wagen::Builder::default();
 
     for (func_idx, (_name, _index, params, _results)) in import_items.iter().enumerate() {
-        for arg_idx in 0..params.len() {
-            let type_code = match params[arg_idx] {
+        for (arg_idx, param) in params.iter().enumerate() {
+            let type_code = match param {
                 ValType::I32 => TypeCode::I32,
                 ValType::I64 => TypeCode::I64,
                 ValType::F32 => TypeCode::F32,
@@ -137,7 +137,7 @@ pub fn generate_wasm_shims(
 
     // Create converters for each host function to reinterpret the I64 bit pattern as the expected type
     let mut converter_indices = Vec::new();
-    for (_, (name, _index, params, results)) in import_items.iter().enumerate() {
+    for (name, _index, params, results) in import_items.iter() {
         let import_type = module
             .types()
             .push(|t| t.function(params.clone(), results.clone()));
@@ -208,15 +208,15 @@ pub fn generate_wasm_shims(
 
         // Create the converter function
         let mut shim_params = vec![ValType::I32]; // Function index
-        shim_params.extend(std::iter::repeat(ValType::I64).take(params.len()));
+        shim_params.extend(std::iter::repeat_n(ValType::I64, params.len()));
 
         let conv_func = module.func(
-            &format!("__conv_{}", name),
+            format!("__conv_{}", name),
             shim_params,
             vec![ValType::I64],
             vec![],
         );
-        conv_func.export(&format!("__conv_{}", name));
+        conv_func.export(format!("__conv_{}", name));
         conv_func.body = builder;
 
         converter_indices.push(conv_func.index);
