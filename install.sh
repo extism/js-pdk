@@ -15,7 +15,7 @@ else
     fi
 
     # try to parse tag
-    LATEST_TAG=$(echo "$response" | grep -m 1 '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    LATEST_TAG=$(grep -m 1 '"tag_name":' <<< "$response" | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
     if [ -z "$LATEST_TAG" ]; then
         echo "Error: Could not find the latest release tag."
